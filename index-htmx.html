@@ -43,6 +43,19 @@
         .buttons {
             display: flex;
             gap: 0.625rem;
+            align-items: center;
+        }
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 0.3125rem;
+            font-size: 0.9rem;
+        }
+        .checkbox-container input[type="checkbox"] {
+            margin: 0;
+        }
+        .checkbox-container label {
+            cursor: pointer;
         }
         button {
             padding: 0.5rem 0.75rem;
@@ -270,6 +283,10 @@
             <textarea id="field-names" value="id&#10;name&#10;score" placeholder="id&#10;name&#10;credit_score" x-model="fieldNamesText"></textarea>
             <div class="buttons">
                 <button @click="processFields()">Process Fields</button>
+                <div class="checkbox-container">
+                    <input type="checkbox" id="use-pipeline-only" x-model="usePipelineOnly">
+                    <label for="use-pipeline-only">Use Pipeline data only</label>
+                </div>
             </div>
         </div>
         
@@ -423,6 +440,7 @@
                 originalResults: [], // Store original auto-detected results
                 adidoMetadataCount: 0,
                 pipeMetadataCount: 0,
+                usePipelineOnly: false, // New property for the checkbox
                 
                 get canSearch() {
                     return this.searchFieldName.length >= 2 || this.searchSource.length >= 3;
@@ -540,7 +558,7 @@
                 },
                 
                 processFields() {
-                    if (this.pipeMetadata.length === 0 && this.adidoMetadata.length === 0) {
+                    if (this.pipeMetadata.length === 0 && (!this.usePipelineOnly && this.adidoMetadata.length === 0)) {
                         alert('Please load the metadata file first!');
                         return;
                     }
@@ -553,34 +571,36 @@
                     }
                     
                     this.results = fieldNames.map(fieldName => {
-                        // First check in ADIDO metadata (higher priority)
-                        const adidoMatches = this.adidoMetadata.filter(item => 
-                            item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
-                        );
-                        
-                        if (adidoMatches.length > 0) {
-                            // Add source information
-                            const enhancedMatches = adidoMatches.map(match => {
-                                return {
-                                    source: match.report_file || 'Unknown Report',
-                                    name: match.field_name,
-                                    business_description: match.business_description || '',
-                                    classification: match.classification || '',
-                                    pi: match.pi,
-                                    pci: match.pci,
-                                    treatment: match.treatment || '',
-                                    table_path: '',
-                                    from_source: 'adido'
-                                };
-                            });
+                        // First check in ADIDO metadata (higher priority) if not using pipeline only
+                        if (!this.usePipelineOnly) {
+                            const adidoMatches = this.adidoMetadata.filter(item => 
+                                item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
+                            );
                             
-                            return {
-                                fieldName,
-                                noMatch: false,
-                                matchingFields: enhancedMatches,
-                                currentField: enhancedMatches[0],
-                                mode: 'auto'
-                            };
+                            if (adidoMatches.length > 0) {
+                                // Add source information
+                                const enhancedMatches = adidoMatches.map(match => {
+                                    return {
+                                        source: match.report_file || 'Unknown Report',
+                                        name: match.field_name,
+                                        business_description: match.business_description || '',
+                                        classification: match.classification || '',
+                                        pi: match.pi,
+                                        pci: match.pci,
+                                        treatment: match.treatment || '',
+                                        table_path: '',
+                                        from_source: 'adido'
+                                    };
+                                });
+                                
+                                return {
+                                    fieldName,
+                                    noMatch: false,
+                                    matchingFields: enhancedMatches,
+                                    currentField: enhancedMatches[0],
+                                    mode: 'auto'
+                                };
+                            }
                         }
                         
                         // Then check in pipe metadata
@@ -633,21 +653,31 @@
                         return;
                     }
                     
-                    // Combine both data sources
-                    const allFields = [
-                        ...this.adidoMetadata.map(item => {
-                            return {
-                                source: item.report_file || 'Unknown Report',
-                                name: item.field_name,
-                                business_description: item.business_description || '',
-                                classification: item.classification || '',
-                                pi: item.pi,
-                                pci: item.pci,
-                                treatment: item.treatment || '',
-                                table_path: '',
-                                from_source: 'adido'
-                            };
-                        }),
+                    // Combine data sources based on usePipelineOnly setting
+                    let allFields = [];
+                    
+                    // Add ADIDO metadata if not using pipeline only
+                    if (!this.usePipelineOnly) {
+                        allFields = [
+                            ...this.adidoMetadata.map(item => {
+                                return {
+                                    source: item.report_file || 'Unknown Report',
+                                    name: item.field_name,
+                                    business_description: item.business_description || '',
+                                    classification: item.classification || '',
+                                    pi: item.pi,
+                                    pci: item.pci,
+                                    treatment: item.treatment || '',
+                                    table_path: '',
+                                    from_source: 'adido'
+                                };
+                            })
+                        ];
+                    }
+                    
+                    // Always add pipeline metadata
+                    allFields = [
+                        ...allFields,
                         ...this.pipeMetadata.filter(item => item.object_type === 'field').map(item => {
                             return {
                                 source: item.table_name || 'Unknown Table',
