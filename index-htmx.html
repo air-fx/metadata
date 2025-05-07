@@ -72,7 +72,7 @@
             gap: 10px;
             margin-bottom: 15px;
         }
-        .search-filters input {
+        .search-filters input, .search-filters select {
             flex: 1;
             padding: 8px;
         }
@@ -92,6 +92,25 @@
             background-color: #4CAF50;
             color: white;
         }
+        .search-message {
+            padding: 10px;
+            color: #666;
+            text-align: center;
+            font-style: italic;
+        }
+        .file-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .file-input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .file-input-row button {
+            padding: 8px 12px;
+        }
     </style>
 </head>
 <body>
@@ -100,13 +119,24 @@
         
         <div>
             <h2>Step 1: Load Metadata Files</h2>
-            <div>
-                <label>Metadata CSV:</label>
-                <input type="file" id="metadata-file" accept=".csv" @change="loadMetadata($event)">
-            </div>
-            <div style="margin-top: 10px;">
-                <label>Already Requested Metadata CSV:</label>
-                <input type="file" id="already-requested-file" accept=".csv" @change="loadAlreadyRequestedMetadata($event)">
+            <div class="file-inputs">
+                <div class="file-input-row">
+                    <button @click="loadDefaultMetadata()">Load Default Metadata</button>
+                    <span x-text="metadataStatus"></span>
+                </div>
+                <div class="file-input-row">
+                    <label>Or upload custom Metadata CSV:</label>
+                    <input type="file" id="metadata-file" accept=".csv" @change="loadMetadata($event)">
+                </div>
+                
+                <div class="file-input-row" style="margin-top: 10px;">
+                    <button @click="loadDefaultAlreadyRequestedMetadata()">Load Default Already Requested Metadata</button>
+                    <span x-text="alreadyRequestedStatus"></span>
+                </div>
+                <div class="file-input-row">
+                    <label>Or upload custom Already Requested Metadata CSV:</label>
+                    <input type="file" id="already-requested-file" accept=".csv" @change="loadAlreadyRequestedMetadata($event)">
+                </div>
             </div>
         </div>
         
@@ -170,6 +200,7 @@
             </table>
             <div class="buttons">
                 <button @click="exportResults()">Export Results</button>
+                <button @click="copyAsTable()">Copy as Table</button>
             </div>
         </div>
         
@@ -178,38 +209,51 @@
             <div class="modal-content">
                 <h3>Search Fields</h3>
                 <div class="search-filters">
-                    <input type="text" placeholder="Field name" x-model="searchFieldName">
-                    <input type="text" placeholder="Source" x-model="searchSource">
+                    <input type="text" placeholder="Field name (min 2 chars)" x-model="searchFieldName" @input="updateSearchResults()">
+                    <input type="text" placeholder="Source (min 4 chars)" x-model="searchSource" @input="updateSearchResults()">
+                    <select x-model="searchLimit" @change="updateSearchResults()">
+                        <option value="20">Limit: 20</option>
+                        <option value="100">Limit: 100</option>
+                        <option value="1000">Limit: 1000</option>
+                    </select>
                 </div>
                 <div class="search-results">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Source</th>
-                                <th>Field Name</th>
-                                <th>Classification</th>
-                                <th>PI</th>
-                                <th>PCI</th>
-                                <th>Treatment</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="(field, index) in filteredSearchResults" :key="index">
+                    <template x-if="!canSearch">
+                        <div class="search-message">Enter at least 2 characters in Field name or 4 characters in Source to search</div>
+                    </template>
+                    <template x-if="canSearch && filteredSearchResults.length === 0">
+                        <div class="search-message">No matching fields found</div>
+                    </template>
+                    <template x-if="filteredSearchResults.length > 0">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td x-text="field.source"></td>
-                                    <td x-text="field.name"></td>
-                                    <td x-text="field.classification"></td>
-                                    <td x-text="field.pi"></td>
-                                    <td x-text="field.pci"></td>
-                                    <td x-text="field.treatment"></td>
-                                    <td>
-                                        <button @click="selectField(field)">Select</button>
-                                    </td>
+                                    <th>Source</th>
+                                    <th>Field Name</th>
+                                    <th>Classification</th>
+                                    <th>PI</th>
+                                    <th>PCI</th>
+                                    <th>Treatment</th>
+                                    <th>Action</th>
                                 </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <template x-for="(field, index) in filteredSearchResults" :key="index">
+                                    <tr>
+                                        <td x-text="field.source"></td>
+                                        <td x-text="field.name"></td>
+                                        <td x-text="field.classification"></td>
+                                        <td x-text="field.pi"></td>
+                                        <td x-text="field.pci"></td>
+                                        <td x-text="field.treatment"></td>
+                                        <td>
+                                            <button @click="selectField(field)">Select</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
                 </div>
                 <div class="buttons" style="margin-top: 15px;">
                     <button @click="closeSearch()">Close</button>
@@ -229,9 +273,67 @@
                 showSearchModal: false,
                 searchFieldName: '',
                 searchSource: '',
+                searchLimit: '20',
                 currentSearchIndex: null,
+                filteredSearchResults: [],
+                metadataStatus: '',
+                alreadyRequestedStatus: '',
+                originalResults: [], // Store original auto-detected results
                 
-                get filteredSearchResults() {
+                get canSearch() {
+                    return this.searchFieldName.length >= 2 || this.searchSource.length >= 4;
+                },
+                
+                init() {
+                    // Load default metadata files on page load
+                    this.loadDefaultMetadata();
+                    this.loadDefaultAlreadyRequestedMetadata();
+                },
+                
+                loadDefaultMetadata() {
+                    this.metadataStatus = 'Loading...';
+                    fetch('src/metadata.csv')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.text();
+                        })
+                        .then(content => {
+                            this.metadataData = this.parseCSV(content);
+                            this.metadataStatus = 'Default metadata loaded successfully!';
+                        })
+                        .catch(error => {
+                            console.error('Error loading default metadata:', error);
+                            this.metadataStatus = 'Error loading default metadata. Please upload manually.';
+                        });
+                },
+                
+                loadDefaultAlreadyRequestedMetadata() {
+                    this.alreadyRequestedStatus = 'Loading...';
+                    fetch('src/already_requested_metadata.csv')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.text();
+                        })
+                        .then(content => {
+                            this.alreadyRequestedData = this.parseCSV(content);
+                            this.alreadyRequestedStatus = 'Default already requested metadata loaded successfully!';
+                        })
+                        .catch(error => {
+                            console.error('Error loading default already requested metadata:', error);
+                            this.alreadyRequestedStatus = 'Error loading default already requested metadata. Please upload manually.';
+                        });
+                },
+                
+                updateSearchResults() {
+                    if (!this.canSearch) {
+                        this.filteredSearchResults = [];
+                        return;
+                    }
+                    
                     // Combine both data sources
                     const allFields = [
                         ...this.alreadyRequestedData.map(item => ({
@@ -251,13 +353,13 @@
                     ];
                     
                     // Apply filters
-                    return allFields.filter(field => {
-                        const nameMatch = !this.searchFieldName || 
+                    this.filteredSearchResults = allFields.filter(field => {
+                        const nameMatch = this.searchFieldName.length < 2 || 
                             field.name.toLowerCase().includes(this.searchFieldName.toLowerCase());
-                        const sourceMatch = !this.searchSource || 
+                        const sourceMatch = this.searchSource.length < 4 || 
                             field.source.toLowerCase().includes(this.searchSource.toLowerCase());
                         return nameMatch && sourceMatch;
-                    }).slice(0, 10); // Limit to 10 results
+                    }).slice(0, parseInt(this.searchLimit)); // Apply limit
                 },
                 
                 loadMetadata(event) {
@@ -268,7 +370,7 @@
                     reader.onload = (e) => {
                         const content = e.target.result;
                         this.metadataData = this.parseCSV(content);
-                        alert('Metadata loaded successfully!');
+                        this.metadataStatus = 'Custom metadata loaded successfully!';
                     };
                     reader.readAsText(file);
                 },
@@ -281,7 +383,7 @@
                     reader.onload = (e) => {
                         const content = e.target.result;
                         this.alreadyRequestedData = this.parseCSV(content);
-                        alert('Already Requested Metadata loaded successfully!');
+                        this.alreadyRequestedStatus = 'Custom already requested metadata loaded successfully!';
                     };
                     reader.readAsText(file);
                 },
@@ -374,14 +476,17 @@
                         };
                     });
                     
+                    // Store a deep copy of the original results for Auto mode
+                    this.originalResults = JSON.parse(JSON.stringify(this.results));
+                    
                     this.showResults = true;
                 },
                 
                 setAutoMode(index) {
-                    this.results[index].mode = 'auto';
-                    // Reset to default matching logic
-                    if (!this.results[index].noMatch && this.results[index].matchingFields.length > 0) {
-                        this.results[index].currentField = this.results[index].matchingFields[0];
+                    // Restore the original auto-detected result
+                    if (this.originalResults[index]) {
+                        this.results[index] = JSON.parse(JSON.stringify(this.originalResults[index]));
+                        this.results[index].mode = 'auto';
                     }
                 },
                 
@@ -389,7 +494,9 @@
                     this.currentSearchIndex = index;
                     this.searchFieldName = this.results[index].fieldName;
                     this.searchSource = '';
+                    this.searchLimit = '20';
                     this.showSearchModal = true;
+                    this.updateSearchResults();
                 },
                 
                 closeSearch() {
@@ -397,6 +504,7 @@
                     this.currentSearchIndex = null;
                     this.searchFieldName = '';
                     this.searchSource = '';
+                    this.filteredSearchResults = [];
                 },
                 
                 selectField(field) {
@@ -424,6 +532,43 @@
                     });
                     
                     this.downloadCSV(csvContent, 'classified_fields.csv');
+                },
+                
+                copyAsTable() {
+                    if (this.results.length === 0) {
+                        alert('No results to copy!');
+                        return;
+                    }
+                    
+                    // Create a table with the specified columns
+                    let tableContent = '';
+                    
+                    // Add each row
+                    this.results.forEach(result => {
+                        if (result.noMatch) {
+                            tableContent += `${result.fieldName}\tNo matching field found\t\t\t\n`;
+                        } else {
+                            tableContent += `${result.fieldName}\t${result.currentField.classification}\t${result.currentField.pi}\t${result.currentField.pci}\t${result.currentField.treatment}\n`;
+                        }
+                    });
+                    
+                    // Copy to clipboard
+                    this.copyToClipboard(tableContent);
+                    alert('Table copied to clipboard!');
+                },
+                
+                copyToClipboard(text) {
+                    // Create a temporary textarea element
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    
+                    // Select and copy the text
+                    textarea.select();
+                    document.execCommand('copy');
+                    
+                    // Remove the temporary element
+                    document.body.removeChild(textarea);
                 },
                 
                 downloadCSV(content, filename) {

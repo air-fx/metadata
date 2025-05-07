@@ -39,3 +39,13 @@ Popup results table should contain following columns:
 
 User can select fields from the dropdown and export the results.
 Export button offers to download a csv with selected fields from the screen (should be the same structure as metadata.csv file).
+
+
+--outdated section---
+* on the main results page: add Show as Table button next to "Export" button . This button should display a popup with a table having following fields only:
+- Field name
+- Classification
+- PI
+- PCI
+- Treatment
+This is done, so the user can select everything and copy-paste into excel file as a table.
