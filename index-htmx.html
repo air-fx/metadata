@@ -203,7 +203,7 @@
         <div>
             <h2>Step 2: Enter Field Names</h2>
             <p>Enter one field name per line:</p>
-            <textarea id="field-names" placeholder="id&#10;name&#10;credit_score" x-model="fieldNamesText"></textarea>
+            <textarea id="field-names" value="id&#10;name&#10;score" placeholder="id&#10;name&#10;credit_score" x-model="fieldNamesText"></textarea>
             <div class="buttons">
                 <button @click="processFields()">Process Fields</button>
             </div>
@@ -245,8 +245,8 @@
                             </td>
                             <td x-text="result.fieldName"></td>
                             <td x-text="result.noMatch ? 'No matching field found' : result.currentField.classification" :colspan="result.noMatch ? 4 : 1"></td>
-                            <td x-text="result.noMatch ? '' : result.currentField.pi" x-show="!result.noMatch"></td>
-                            <td x-text="result.noMatch ? '' : result.currentField.pci" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? '' : (result.currentField.pi === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? '' : (result.currentField.pci === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
                             <td>
                                 <div class="action-buttons">
@@ -303,8 +303,8 @@
                                         <td x-text="field.source"></td>
                                         <td x-text="field.name"></td>
                                         <td x-text="field.classification"></td>
-                                        <td x-text="field.pi"></td>
-                                        <td x-text="field.pci"></td>
+                                        <td x-text="field.pi === true ? 'Yes' : 'No'"></td>
+                                        <td x-text="field.pci === true ? 'Yes' : 'No'"></td>
                                         <td x-text="field.treatment"></td>
                                         <td>
                                             <button @click="selectField(field)">Select</button>
@@ -362,9 +362,9 @@
                         .then(buffer => {
                             const data = new Uint8Array(buffer);
                             const workbook = XLSX.read(data, { type: 'array' });
-                            const worksheet = workbook.Sheets['metadata']; // workbook.SheetNames[0]
+                            const worksheet = workbook.Sheets['metadata'];
                             const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                            this.metadataData = jsonData;
+                            this.metadataData = this.mapMetadataToInternalSchema(jsonData);
                             this.metadataStatus = 'Default metadata loaded successfully!';
                         })
                         .catch(error => {
@@ -385,49 +385,15 @@
                         .then(buffer => {
                             const data = new Uint8Array(buffer);
                             const workbook = XLSX.read(data, { type: 'array' });
-                            const worksheet = workbook.Sheets['data'];
+                            const worksheet = workbook.Sheets['ADIDO Metadata'];
                             const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                            this.alreadyRequestedData = jsonData;
+                            this.alreadyRequestedData = this.mapAlreadyRequestedToInternalSchema(jsonData);
                             this.alreadyRequestedStatus = 'Default already requested metadata loaded successfully!';
                         })
                         .catch(error => {
                             console.error('Error loading default already requested metadata:', error);
                             this.alreadyRequestedStatus = 'Error loading default already requested metadata. Please upload manually.';
                         });
-                },
-                
-                updateSearchResults() {
-                    if (!this.canSearch) {
-                        this.filteredSearchResults = [];
-                        return;
-                    }
-                    
-                    // Combine both data sources
-                    const allFields = [
-                        ...this.alreadyRequestedData.map(item => ({
-                            ...item,
-                            source: item.report || 'Unknown Report',
-                            name: item.name
-                        })),
-                        ...this.metadataData.filter(item => item.object_type === 'field').map(item => {
-                            const pathParts = item.path.split('/');
-                            const tableName = pathParts[pathParts.length - 2];
-                            return {
-                                ...item,
-                                source: tableName,
-                                name: item.name
-                            };
-                        })
-                    ];
-                    
-                    // Apply filters
-                    this.filteredSearchResults = allFields.filter(field => {
-                        const nameMatch = this.searchFieldName.length < 2 || 
-                            field.name.toLowerCase().includes(this.searchFieldName.toLowerCase());
-                        const sourceMatch = this.searchSource.length < 4 || 
-                            field.source.toLowerCase().includes(this.searchSource.toLowerCase());
-                        return nameMatch && sourceMatch;
-                    }).slice(0, parseInt(this.searchLimit)); // Apply limit
                 },
                 
                 loadMetadata(event) {
@@ -440,7 +406,7 @@
                         const workbook = XLSX.read(data, { type: 'array' });
                         const worksheet = workbook.Sheets['metadata'];
                         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                        this.metadataData = jsonData;
+                        this.metadataData = this.mapMetadataToInternalSchema(jsonData);
                         this.metadataStatus = 'Custom metadata loaded successfully!';
                     };
                     reader.readAsArrayBuffer(file);
@@ -456,33 +422,82 @@
                         const workbook = XLSX.read(data, { type: 'array' });
                         const worksheet = workbook.Sheets['data'];
                         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                        this.alreadyRequestedData = jsonData;
+                        this.alreadyRequestedData = this.mapAlreadyRequestedToInternalSchema(jsonData);
                         this.alreadyRequestedStatus = 'Custom already requested metadata loaded successfully!';
                     };
                     reader.readAsArrayBuffer(file);
                 },
                 
-                parseCSV(content) {
-                    const lines = content.split('\n');
-                    const headers = lines[0].split(',');
-                    
-                    return lines.slice(1)
-                        .filter(line => line.trim() !== '')
-                        .map(line => {
-                            const values = line.split(',');
-                            const obj = {};
+                // Map metadata Excel data to internal schema
+                mapMetadataToInternalSchema(data) {
+                    console.log('Raw metadata data:', data);
+                    return data.map(item => {
+                        // Extract table path from the path field
+                        let tablePath = '';
+                        let tableName = 'Unknown Table';
+                        
+                        if (item.table_path) {
+                            const pathParts = item.table_path.split('/');
+                            if (pathParts.length >= 2) {
+                                tablePath = pathParts.slice(0, -1).join('/');
+                                tableName = pathParts[pathParts.length - 1] || 'Unknown Table';
+                            }
+                        }
+                        
+                        // Convert PI and PCI to boolean values if they're strings
+                        const pi = typeof item['PI'] === 'string' ? 
+                            (item['PI'].toLowerCase() === 'true' || item['PI'] === '1' || item['PI'].toLowerCase() === 'yes') : 
+                            Boolean(item['PI']);
                             
-                            headers.forEach((header, i) => {
-                                obj[header.trim()] = values[i] ? values[i].trim() : '';
-                            });
+                        const pci = typeof item['PCI-DSS'] === 'string' ? 
+                            (item['PCI-DSS'].toLowerCase() === 'true' || item['PCI-DSS'] === '1' || item['PCI-DSS'].toLowerCase() === 'yes') : 
+                            Boolean(item['PCI-DSS']);
+                        
+                        console.log(`Field: ${item['Name']}, PI: ${item['PI']} (${typeof item['PI']}) → ${pi}, PCI: ${item['PCI-DSS']} (${typeof item['PCI-DSS']}) → ${pci}`);
+                        
+                        return {
+                            object_type: item['Object Type'] || '',
+                            field_name: item['Name'] || '',
+                            classification: item['Security Classification'] || '',
+                            pi: pi,
+                            pci: pci,
+                            treatment: item['Data Treatment'] || '',
+                            path: item.path || '',
+                            table_path: tablePath,
+                            table_name: tableName
+                        };
+                    });
+                },
+                
+                // Map already requested metadata Excel data to internal schema
+                mapAlreadyRequestedToInternalSchema(data) {
+                    console.log('Raw already requested data:', data);
+                    return data.map(item => {
+                        // Convert PI and PCI to boolean values if they're strings
+                        const pi = typeof item['PI'] === 'string' ? 
+                            (item['PI'].toLowerCase() === 'true' || item['PI'] === '1' || item['PI'].toLowerCase() === 'yes') : 
+                            Boolean(item['PI']);
                             
-                            return obj;
-                        });
+                        const pci = typeof item['PCI'] === 'string' ? 
+                            (item['PCI'].toLowerCase() === 'true' || item['PCI'] === '1' || item['PCI'].toLowerCase() === 'yes') : 
+                            Boolean(item['PCI']);
+                        
+                        console.log(`Field: ${item['Field Name']}, PI: ${item['PI']} (${typeof item['PI']}) → ${pi}, PCI: ${item['PCI']} (${typeof item['PCI']}) → ${pci}`);
+                        
+                        return {
+                            report_file: item['File Name'] || '',
+                            field_name: item['Field Name'] || '',
+                            classification: item['Classification'] || '',
+                            pi: pi,
+                            pci: pci,
+                            treatment: item['Data Treatment'] || '',
+                        };
+                    });
                 },
                 
                 processFields() {
-                    if (this.metadataData.length === 0) {
-                        alert('Please load metadata CSV first!');
+                    if (this.metadataData.length === 0 && this.alreadyRequestedData.length === 0) {
+                        alert('Please load at least one metadata file first!');
                         return;
                     }
                     
@@ -496,16 +511,23 @@
                     this.results = fieldNames.map(fieldName => {
                         // First check in already requested data (higher priority)
                         const alreadyRequestedMatches = this.alreadyRequestedData.filter(item => 
-                            item.name === fieldName.trim()
+                            item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
                         );
                         
                         if (alreadyRequestedMatches.length > 0) {
                             // Add source information
-                            const enhancedMatches = alreadyRequestedMatches.map(match => ({
-                                ...match,
-                                source: match.report || 'Unknown Report',
-                                name: match.name
-                            }));
+                            const enhancedMatches = alreadyRequestedMatches.map(match => {
+                                return {
+                                    source: match.report_file || 'Unknown Report',
+                                    name: match.field_name,
+                                    classification: match.classification || '',
+                                    pi: match.pi,
+                                    pci: match.pci,
+                                    treatment: match.treatment || '',
+                                    table_path: '',
+                                    from_source: 'already_requested'
+                                };
+                            });
                             
                             return {
                                 fieldName,
@@ -518,18 +540,21 @@
                         
                         // Then check in metadata
                         const metadataMatches = this.metadataData.filter(item => 
-                            item.object_type === 'field' && item.name === fieldName.trim()
+                            item.object_type === 'field' && item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
                         );
                         
                         if (metadataMatches.length > 0) {
                             // Add source information
                             const enhancedMatches = metadataMatches.map(match => {
-                                const pathParts = match.path.split('/');
-                                const tableName = pathParts[pathParts.length - 2];
                                 return {
-                                    ...match,
-                                    source: tableName,
-                                    name: match.name
+                                    source: match.table_name || 'Unknown Table',
+                                    name: match.field_name,
+                                    classification: match.classification || '',
+                                    pi: match.pi,
+                                    pci: match.pci,
+                                    treatment: match.treatment || '',
+                                    table_path: match.table_path || '',
+                                    from_source: 'metadata'
                                 };
                             });
                             
@@ -554,6 +579,50 @@
                     this.originalResults = JSON.parse(JSON.stringify(this.results));
                     
                     this.showResults = true;
+                },
+                
+                updateSearchResults() {
+                    if (!this.canSearch) {
+                        this.filteredSearchResults = [];
+                        return;
+                    }
+                    
+                    // Combine both data sources
+                    const allFields = [
+                        ...this.alreadyRequestedData.map(item => {
+                            return {
+                                source: item.report_file || 'Unknown Report',
+                                name: item.field_name,
+                                classification: item.classification || '',
+                                pi: item.pi,
+                                pci: item.pci,
+                                treatment: item.treatment || '',
+                                table_path: '',
+                                from_source: 'already_requested'
+                            };
+                        }),
+                        ...this.metadataData.filter(item => item.object_type === 'field').map(item => {
+                            return {
+                                source: item.table_name || 'Unknown Table',
+                                name: item.field_name,
+                                classification: item.classification || '',
+                                pi: item.pi,
+                                pci: item.pci,
+                                treatment: item.treatment || '',
+                                table_path: item.table_path || '',
+                                from_source: 'metadata'
+                            };
+                        })
+                    ];
+                    
+                    // Apply filters
+                    this.filteredSearchResults = allFields.filter(field => {
+                        const nameMatch = this.searchFieldName.length < 2 || 
+                            field.name.toLowerCase().includes(this.searchFieldName.toLowerCase());
+                        const sourceMatch = this.searchSource.length < 4 || 
+                            field.source.toLowerCase().includes(this.searchSource.toLowerCase());
+                        return nameMatch && sourceMatch;
+                    }).slice(0, parseInt(this.searchLimit)); // Apply limit
                 },
                 
                 setAutoMode(index) {
@@ -596,13 +665,14 @@
                         return;
                     }
                     
-                    let csvContent = 'object_type,name,path,classification,pi,pci,treatment\n';
+                    let csvContent = 'object_type,name,table_path,classification,pi,pci,treatment\n';
                     
                     this.results.forEach(result => {
                         if (result.noMatch) return;
                         
                         // Use the original field name for export, but keep all other data from the selected field
-                        csvContent += `field,${result.fieldName},${result.currentField.path || ''},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
+                        const tablePath = result.currentField.table_path || '';
+                        csvContent += `field,${result.fieldName},${tablePath},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
                     });
                     
                     this.downloadCSV(csvContent, 'classified_fields.csv');
