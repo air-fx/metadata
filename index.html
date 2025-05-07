@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Extraction Field Classifier</title>
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -87,214 +89,202 @@
     </div>
 
     <script>
-        let metadataData = [];
-        
-        // Load and parse CSV file
-        document.getElementById('metadata-file').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+        $(document).ready(function() {
+            let metadataData = [];
             
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const content = e.target.result;
-                metadataData = parseCSV(content);
-                alert('Metadata loaded successfully!');
-            };
-            reader.readAsText(file);
-        });
-        
-        // Process field names
-        document.getElementById('process-btn').addEventListener('click', function() {
-            if (metadataData.length === 0) {
-                alert('Please load metadata CSV first!');
-                return;
-            }
-            
-            const fieldNamesText = document.getElementById('field-names').value;
-            const fieldNames = fieldNamesText.split('\n').filter(name => name.trim() !== '');
-            
-            if (fieldNames.length === 0) {
-                alert('Please enter at least one field name!');
-                return;
-            }
-            
-            processFields(fieldNames);
-            document.getElementById('results-section').classList.remove('hidden');
-        });
-        
-        // Export results
-        document.getElementById('export-btn').addEventListener('click', function() {
-            const table = document.getElementById('results-table');
-            const rows = Array.from(table.querySelectorAll('tbody tr'));
-            
-            if (rows.length === 0) {
-                alert('No results to export!');
-                return;
-            }
-            
-            const csvContent = exportToCSV(rows);
-            downloadCSV(csvContent, 'classified_fields.csv');
-        });
-        
-        // Parse CSV content
-        function parseCSV(content) {
-            const lines = content.split('\n');
-            const headers = lines[0].split(',');
-            
-            return lines.slice(1).map(line => {
-                if (line.trim() === '') return null;
+            // Load and parse CSV file
+            $('#metadata-file').on('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
                 
-                const values = line.split(',');
-                const obj = {};
-                
-                headers.forEach((header, i) => {
-                    obj[header.trim()] = values[i] ? values[i].trim() : '';
-                });
-                
-                return obj;
-            }).filter(item => item !== null);
-        }
-        
-        // Process field names and display results
-        function processFields(fieldNames) {
-            const resultsBody = document.getElementById('results-body');
-            resultsBody.innerHTML = '';
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    metadataData = parseCSV(content);
+                    alert('Metadata loaded successfully!');
+                };
+                reader.readAsText(file);
+            });
             
-            fieldNames.forEach(fieldName => {
-                // Find all matching fields
-                const matchingFields = metadataData.filter(item => 
-                    item.object_type === 'field' && item.name === fieldName.trim()
-                );
-                
-                if (matchingFields.length === 0) {
-                    // No match found
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td colspan="1">-</td>
-                        <td>${fieldName}</td>
-                        <td colspan="5">No matching field found</td>
-                    `;
-                    resultsBody.appendChild(row);
-                } else if (matchingFields.length === 1) {
-                    // Single match found
-                    const field = matchingFields[0];
-                    const row = createResultRow(field, fieldName);
-                    resultsBody.appendChild(row);
-                } else {
-                    // Multiple matches found - create dropdown
-                    const field = matchingFields[0];
-                    const row = createResultRow(field, fieldName, matchingFields);
-                    resultsBody.appendChild(row);
+            // Process field names
+            $('#process-btn').on('click', function() {
+                if (metadataData.length === 0) {
+                    alert('Please load metadata CSV first!');
+                    return;
                 }
+                
+                const fieldNamesText = $('#field-names').val();
+                const fieldNames = fieldNamesText.split('\n').filter(name => name.trim() !== '');
+                
+                if (fieldNames.length === 0) {
+                    alert('Please enter at least one field name!');
+                    return;
+                }
+                
+                processFields(fieldNames);
+                $('#results-section').removeClass('hidden');
             });
-        }
-        
-        // Create result row
-        function createResultRow(field, fieldName, matchingFields = null) {
-            const row = document.createElement('tr');
-            row.dataset.fieldName = fieldName;
             
-            if (matchingFields) {
-                // Extract table names for dropdown
-                const tableNames = matchingFields.map(f => {
-                    const pathParts = f.path.split('/');
-                    return pathParts[pathParts.length - 2];
-                });
+            // Export results
+            $('#export-btn').on('click', function() {
+                const rows = $('#results-table tbody tr').get();
                 
-                // Create the row with empty cells first
-                row.innerHTML = `
-                    <td></td>
-                    <td>${fieldName}</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                `;
+                if (rows.length === 0) {
+                    alert('No results to export!');
+                    return;
+                }
                 
-                // Create and add the dropdown to the first cell
-                const tableCell = row.cells[0];
-                const tableSelect = document.createElement('select');
-                tableSelect.innerHTML = tableNames.map((tableName, i) => 
-                    `<option value="${i}">${tableName}</option>`
-                ).join('');
+                const csvContent = exportToCSV(rows);
+                downloadCSV(csvContent, 'classified_fields.csv');
+            });
+            
+            // Parse CSV content
+            function parseCSV(content) {
+                const lines = content.split('\n');
+                const headers = lines[0].split(',');
                 
-                tableSelect.addEventListener('change', function() {
-                    const selectedIndex = parseInt(this.value);
-                    const selectedField = matchingFields[selectedIndex];
-                    updateRowData(row, selectedField);
-                });
-                
-                tableCell.appendChild(tableSelect);
-                
-                // Initialize with the first match
-                updateRowData(row, field);
-            } else {
-                // Single match - create row with all data
-                const pathParts = field.path.split('/');
-                const tableName = pathParts[pathParts.length - 2];
-                
-                row.innerHTML = `
-                    <td>${tableName}</td>
-                    <td>${fieldName}</td>
-                    <td>${field.path}</td>
-                    <td>${field.classification}</td>
-                    <td>${field.pi}</td>
-                    <td>${field.pci}</td>
-                    <td>${field.treatment}</td>
-                `;
+                return lines.slice(1)
+                    .filter(line => line.trim() !== '')
+                    .map(line => {
+                        const values = line.split(',');
+                        const obj = {};
+                        
+                        headers.forEach((header, i) => {
+                            obj[header.trim()] = values[i] ? values[i].trim() : '';
+                        });
+                        
+                        return obj;
+                    });
             }
             
-            return row;
-        }
-        
-        // Update row data when table selection changes
-        function updateRowData(row, field) {
-            const cells = row.cells;
-            
-            // Update all cells except the first (dropdown) and second (field name)
-            cells[2].textContent = field.path;
-            cells[3].textContent = field.classification;
-            cells[4].textContent = field.pi;
-            cells[5].textContent = field.pci;
-            cells[6].textContent = field.treatment;
-        }
-        
-        // Export table to CSV
-        function exportToCSV(rows) {
-            let csvContent = 'object_type,name,path,classification,pi,pci,treatment\n';
-            
-            rows.forEach(row => {
-                const fieldName = row.dataset.fieldName;
-                const cells = Array.from(row.querySelectorAll('td'));
+            // Process field names and display results
+            function processFields(fieldNames) {
+                const $resultsBody = $('#results-body');
+                $resultsBody.empty();
                 
-                // Skip rows with no matching field
-                if (cells[2].colSpan === 5) return;
+                fieldNames.forEach(fieldName => {
+                    // Find all matching fields
+                    const matchingFields = metadataData.filter(item => 
+                        item.object_type === 'field' && item.name === fieldName.trim()
+                    );
+                    
+                    if (matchingFields.length === 0) {
+                        // No match found
+                        $resultsBody.append(`
+                            <tr>
+                                <td>-</td>
+                                <td>${fieldName}</td>
+                                <td colspan="5">No matching field found</td>
+                            </tr>
+                        `);
+                    } else if (matchingFields.length === 1) {
+                        // Single match found
+                        $resultsBody.append(createResultRow(matchingFields[0], fieldName));
+                    } else {
+                        // Multiple matches found - create dropdown
+                        $resultsBody.append(createResultRow(matchingFields[0], fieldName, matchingFields));
+                    }
+                });
+            }
+            
+            // Create result row
+            function createResultRow(field, fieldName, matchingFields = null) {
+                if (matchingFields) {
+                    // Multiple matches - create row with dropdown
+                    const $row = $('<tr>').attr('data-field-name', fieldName);
+                    
+                    // Extract table names for dropdown
+                    const tableOptions = matchingFields.map((f, i) => {
+                        const pathParts = f.path.split('/');
+                        const tableName = pathParts[pathParts.length - 2];
+                        return `<option value="${i}">${tableName}</option>`;
+                    }).join('');
+                    
+                    // Create table cell with dropdown
+                    const $tableCell = $('<td>').append(
+                        $('<select>').html(tableOptions).on('change', function() {
+                            const selectedIndex = parseInt($(this).val());
+                            updateRowData($row, matchingFields[selectedIndex]);
+                        })
+                    );
+                    
+                    // Add all cells to row
+                    $row.append($tableCell)
+                        .append(`<td>${fieldName}</td>`)
+                        .append('<td></td><td></td><td></td><td></td><td></td>');
+                    
+                    // Initialize with first match
+                    updateRowData($row, field);
+                    
+                    return $row;
+                } else {
+                    // Single match - create simple row
+                    const pathParts = field.path.split('/');
+                    const tableName = pathParts[pathParts.length - 2];
+                    
+                    return $('<tr>')
+                        .attr('data-field-name', fieldName)
+                        .append(`<td>${tableName}</td>`)
+                        .append(`<td>${fieldName}</td>`)
+                        .append(`<td>${field.path}</td>`)
+                        .append(`<td>${field.classification}</td>`)
+                        .append(`<td>${field.pi}</td>`)
+                        .append(`<td>${field.pci}</td>`)
+                        .append(`<td>${field.treatment}</td>`);
+                }
+            }
+            
+            // Update row data when table selection changes
+            function updateRowData($row, field) {
+                const $cells = $row.find('td');
                 
-                const tableName = cells[0].querySelector('select') 
-                    ? cells[0].querySelector('select').options[cells[0].querySelector('select').selectedIndex].text 
-                    : cells[0].textContent;
+                // Update cells (skip first two - table dropdown and field name)
+                $cells.eq(2).text(field.path);
+                $cells.eq(3).text(field.classification);
+                $cells.eq(4).text(field.pi);
+                $cells.eq(5).text(field.pci);
+                $cells.eq(6).text(field.treatment);
+            }
+            
+            // Export table to CSV
+            function exportToCSV(rows) {
+                let csvContent = 'object_type,name,path,classification,pi,pci,treatment\n';
                 
-                csvContent += `field,${fieldName},${cells[2].textContent},${cells[3].textContent},${cells[4].textContent},${cells[5].textContent},${cells[6].textContent}\n`;
-            });
+                $(rows).each(function() {
+                    const $row = $(this);
+                    const fieldName = $row.data('field-name');
+                    const $cells = $row.find('td');
+                    
+                    // Skip rows with no matching field
+                    if ($cells.eq(2).attr('colspan') === '5') return;
+                    
+                    // Get table name (either from dropdown or text)
+                    const $tableCell = $cells.eq(0);
+                    const tableName = $tableCell.find('select').length > 0 
+                        ? $tableCell.find('select option:selected').text() 
+                        : $tableCell.text();
+                    
+                    csvContent += `field,${fieldName},${$cells.eq(2).text()},${$cells.eq(3).text()},${$cells.eq(4).text()},${$cells.eq(5).text()},${$cells.eq(6).text()}\n`;
+                });
+                
+                return csvContent;
+            }
             
-            return csvContent;
-        }
-        
-        // Download CSV file
-        function downloadCSV(content, filename) {
-            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+            // Download CSV file
+            function downloadCSV(content, filename) {
+                const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                const $link = $('<a>')
+                    .attr('href', url)
+                    .attr('download', filename)
+                    .css('visibility', 'hidden');
+                
+                $('body').append($link);
+                $link[0].click();
+                $link.remove();
+            }
+        });
     </script>
 </body>
 </html>

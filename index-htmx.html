@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Extraction Field Classifier</title>
+    <!-- Alpine.js for state management -->
+    <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" x-data="app()">
+        <h1>Data Extraction Field Classifier</h1>
+        
+        <div>
+            <h2>Step 1: Load Metadata CSV</h2>
+            <input type="file" id="metadata-file" accept=".csv" @change="loadMetadata($event)">
+        </div>
+        
+        <div>
+            <h2>Step 2: Enter Field Names</h2>
+            <p>Enter one field name per line:</p>
+            <textarea id="field-names" placeholder="id&#10;name&#10;credit_score" x-model="fieldNamesText"></textarea>
+            <div class="buttons">
+                <button @click="processFields()">Process Fields</button>
+            </div>
+        </div>
+        
+        <div id="results-section" x-show="showResults">
+            <h2>Results</h2>
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>Table</th>
+                        <th>Field Name</th>
+                        <th>Path</th>
+                        <th>Classification</th>
+                        <th>PI</th>
+                        <th>PCI</th>
+                        <th>Treatment</th>
+                    </tr>
+                </thead>
+                <tbody id="results-body">
+                    <template x-for="(result, index) in results" :key="index">
+                        <tr :data-field-name="result.fieldName">
+                            <td>
+                                <template x-if="result.noMatch">
+                                    <span>-</span>
+                                </template>
+                                <template x-if="!result.noMatch && result.matchingFields.length === 1">
+                                    <span x-text="getTableName(result.currentField)"></span>
+                                </template>
+                                <template x-if="!result.noMatch && result.matchingFields.length > 1">
+                                    <select @change="updateSelection(index, $event)">
+                                        <template x-for="(field, i) in result.matchingFields" :key="i">
+                                            <option :value="i" :selected="i === result.selectedIndex" x-text="getTableName(field)"></option>
+                                        </template>
+                                    </select>
+                                </template>
+                            </td>
+                            <td x-text="result.fieldName"></td>
+                            <td x-text="result.noMatch ? 'No matching field found' : result.currentField.path" :colspan="result.noMatch ? 5 : 1"></td>
+                            <td x-text="result.noMatch ? '' : result.currentField.classification" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? '' : result.currentField.pi" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? '' : result.currentField.pci" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <div class="buttons">
+                <button @click="exportResults()">Export Results</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function app() {
+            return {
+                metadataData: [],
+                fieldNamesText: '',
+                results: [],
+                showResults: false,
+                
+                loadMetadata(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const content = e.target.result;
+                        this.metadataData = this.parseCSV(content);
+                        alert('Metadata loaded successfully!');
+                    };
+                    reader.readAsText(file);
+                },
+                
+                parseCSV(content) {
+                    const lines = content.split('\n');
+                    const headers = lines[0].split(',');
+                    
+                    return lines.slice(1)
+                        .filter(line => line.trim() !== '')
+                        .map(line => {
+                            const values = line.split(',');
+                            const obj = {};
+                            
+                            headers.forEach((header, i) => {
+                                obj[header.trim()] = values[i] ? values[i].trim() : '';
+                            });
+                            
+                            return obj;
+                        });
+                },
+                
+                processFields() {
+                    if (this.metadataData.length === 0) {
+                        alert('Please load metadata CSV first!');
+                        return;
+                    }
+                    
+                    const fieldNames = this.fieldNamesText.split('\n').filter(name => name.trim() !== '');
+                    
+                    if (fieldNames.length === 0) {
+                        alert('Please enter at least one field name!');
+                        return;
+                    }
+                    
+                    this.results = fieldNames.map(fieldName => {
+                        // Find all matching fields
+                        const matchingFields = this.metadataData.filter(item => 
+                            item.object_type === 'field' && item.name === fieldName.trim()
+                        );
+                        
+                        if (matchingFields.length === 0) {
+                            return {
+                                fieldName,
+                                noMatch: true,
+                                tableName: '-'
+                            };
+                        } else {
+                            return {
+                                fieldName,
+                                noMatch: false,
+                                matchingFields,
+                                currentField: matchingFields[0],
+                                selectedIndex: 0
+                            };
+                        }
+                    });
+                    
+                    this.showResults = true;
+                },
+                
+                getTableName(field) {
+                    const pathParts = field.path.split('/');
+                    return pathParts[pathParts.length - 2];
+                },
+                
+                updateSelection(index, event) {
+                    const selectedIndex = parseInt(event.target.value);
+                    this.results[index].selectedIndex = selectedIndex;
+                    this.results[index].currentField = this.results[index].matchingFields[selectedIndex];
+                },
+                
+                exportResults() {
+                    if (this.results.length === 0) {
+                        alert('No results to export!');
+                        return;
+                    }
+                    
+                    let csvContent = 'object_type,name,path,classification,pi,pci,treatment\n';
+                    
+                    this.results.forEach(result => {
+                        if (result.noMatch) return;
+                        
+                        csvContent += `field,${result.fieldName},${result.currentField.path},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
+                    });
+                    
+                    this.downloadCSV(csvContent, 'classified_fields.csv');
+                },
+                
+                downloadCSV(content, filename) {
+                    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', filename);
+                    link.style.visibility = 'hidden';
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            };
+        }
+    </script>
+</body>
+</html>
