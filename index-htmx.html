@@ -46,6 +46,48 @@
         .hidden {
             display: none;
         }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .search-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .search-filters input {
+            flex: 1;
+            padding: 8px;
+        }
+        .search-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+        .action-buttons button {
+            padding: 5px 10px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -53,8 +95,15 @@
         <h1>Data Extraction Field Classifier</h1>
         
         <div>
-            <h2>Step 1: Load Metadata CSV</h2>
-            <input type="file" id="metadata-file" accept=".csv" @change="loadMetadata($event)">
+            <h2>Step 1: Load Metadata Files</h2>
+            <div>
+                <label>Metadata CSV:</label>
+                <input type="file" id="metadata-file" accept=".csv" @change="loadMetadata($event)">
+            </div>
+            <div style="margin-top: 10px;">
+                <label>Already Requested Metadata CSV:</label>
+                <input type="file" id="already-requested-file" accept=".csv" @change="loadAlreadyRequestedMetadata($event)">
+            </div>
         </div>
         
         <div>
@@ -71,13 +120,14 @@
             <table id="results-table">
                 <thead>
                     <tr>
-                        <th>Table</th>
+                        <th>Source</th>
                         <th>Field Name</th>
                         <th>Path</th>
                         <th>Classification</th>
                         <th>PI</th>
                         <th>PCI</th>
                         <th>Treatment</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="results-body">
@@ -87,15 +137,8 @@
                                 <template x-if="result.noMatch">
                                     <span>-</span>
                                 </template>
-                                <template x-if="!result.noMatch && result.matchingFields.length === 1">
-                                    <span x-text="getTableName(result.currentField)"></span>
-                                </template>
-                                <template x-if="!result.noMatch && result.matchingFields.length > 1">
-                                    <select @change="updateSelection(index, $event)">
-                                        <template x-for="(field, i) in result.matchingFields" :key="i">
-                                            <option :value="i" :selected="i === result.selectedIndex" x-text="getTableName(field)"></option>
-                                        </template>
-                                    </select>
+                                <template x-if="!result.noMatch">
+                                    <span x-text="result.currentField.source"></span>
                                 </template>
                             </td>
                             <td x-text="result.fieldName"></td>
@@ -104,6 +147,12 @@
                             <td x-text="result.noMatch ? '' : result.currentField.pi" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.pci" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button @click="setAutoMode(index)" :class="{ 'active': result.mode === 'auto' }">Auto</button>
+                                    <button @click="openSearch(index)">Search</button>
+                                </div>
+                            </td>
                         </tr>
                     </template>
                 </tbody>
@@ -112,15 +161,93 @@
                 <button @click="exportResults()">Export Results</button>
             </div>
         </div>
+        
+        <!-- Search Modal -->
+        <div class="modal" x-show="showSearchModal" @click.self="closeSearch()">
+            <div class="modal-content">
+                <h3>Search Fields</h3>
+                <div class="search-filters">
+                    <input type="text" placeholder="Field name" x-model="searchFieldName">
+                    <input type="text" placeholder="Source" x-model="searchSource">
+                </div>
+                <div class="search-results">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Field Name</th>
+                                <th>Path</th>
+                                <th>Classification</th>
+                                <th>PI</th>
+                                <th>PCI</th>
+                                <th>Treatment</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(field, index) in filteredSearchResults" :key="index">
+                                <tr>
+                                    <td x-text="field.source"></td>
+                                    <td x-text="field.name"></td>
+                                    <td x-text="field.path"></td>
+                                    <td x-text="field.classification"></td>
+                                    <td x-text="field.pi"></td>
+                                    <td x-text="field.pci"></td>
+                                    <td x-text="field.treatment"></td>
+                                    <td>
+                                        <button @click="selectField(field)">Select</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="buttons" style="margin-top: 15px;">
+                    <button @click="closeSearch()">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         function app() {
             return {
                 metadataData: [],
+                alreadyRequestedData: [],
                 fieldNamesText: '',
                 results: [],
                 showResults: false,
+                showSearchModal: false,
+                searchFieldName: '',
+                searchSource: '',
+                currentSearchIndex: null,
+                
+                get filteredSearchResults() {
+                    // Combine both data sources
+                    const allFields = [
+                        ...this.alreadyRequestedData.map(item => ({
+                            ...item,
+                            source: item.report || 'Unknown Report'
+                        })),
+                        ...this.metadataData.filter(item => item.object_type === 'field').map(item => {
+                            const pathParts = item.path.split('/');
+                            const tableName = pathParts[pathParts.length - 2];
+                            return {
+                                ...item,
+                                source: tableName
+                            };
+                        })
+                    ];
+                    
+                    // Apply filters
+                    return allFields.filter(field => {
+                        const nameMatch = !this.searchFieldName || 
+                            field.name.toLowerCase().includes(this.searchFieldName.toLowerCase());
+                        const sourceMatch = !this.searchSource || 
+                            field.source.toLowerCase().includes(this.searchSource.toLowerCase());
+                        return nameMatch && sourceMatch;
+                    }).slice(0, 10); // Limit to 10 results
+                },
                 
                 loadMetadata(event) {
                     const file = event.target.files[0];
@@ -131,6 +258,19 @@
                         const content = e.target.result;
                         this.metadataData = this.parseCSV(content);
                         alert('Metadata loaded successfully!');
+                    };
+                    reader.readAsText(file);
+                },
+                
+                loadAlreadyRequestedMetadata(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const content = e.target.result;
+                        this.alreadyRequestedData = this.parseCSV(content);
+                        alert('Already Requested Metadata loaded successfully!');
                     };
                     reader.readAsText(file);
                 },
@@ -167,40 +307,93 @@
                     }
                     
                     this.results = fieldNames.map(fieldName => {
-                        // Find all matching fields
-                        const matchingFields = this.metadataData.filter(item => 
-                            item.object_type === 'field' && item.name === fieldName.trim()
+                        // First check in already requested data (higher priority)
+                        const alreadyRequestedMatches = this.alreadyRequestedData.filter(item => 
+                            item.name === fieldName.trim()
                         );
                         
-                        if (matchingFields.length === 0) {
-                            return {
-                                fieldName,
-                                noMatch: true,
-                                tableName: '-'
-                            };
-                        } else {
+                        if (alreadyRequestedMatches.length > 0) {
+                            // Add source information
+                            const enhancedMatches = alreadyRequestedMatches.map(match => ({
+                                ...match,
+                                path: match.path || `report/${match.report}/${match.name}`,
+                                source: match.report || 'Unknown Report'
+                            }));
+                            
                             return {
                                 fieldName,
                                 noMatch: false,
-                                matchingFields,
-                                currentField: matchingFields[0],
-                                selectedIndex: 0
+                                matchingFields: enhancedMatches,
+                                currentField: enhancedMatches[0],
+                                mode: 'auto'
                             };
                         }
+                        
+                        // Then check in metadata
+                        const metadataMatches = this.metadataData.filter(item => 
+                            item.object_type === 'field' && item.name === fieldName.trim()
+                        );
+                        
+                        if (metadataMatches.length > 0) {
+                            // Add source information
+                            const enhancedMatches = metadataMatches.map(match => {
+                                const pathParts = match.path.split('/');
+                                const tableName = pathParts[pathParts.length - 2];
+                                return {
+                                    ...match,
+                                    source: tableName
+                                };
+                            });
+                            
+                            return {
+                                fieldName,
+                                noMatch: false,
+                                matchingFields: enhancedMatches,
+                                currentField: enhancedMatches[0],
+                                mode: 'auto'
+                            };
+                        }
+                        
+                        // No match found
+                        return {
+                            fieldName,
+                            noMatch: true,
+                            mode: 'auto'
+                        };
                     });
                     
                     this.showResults = true;
                 },
                 
-                getTableName(field) {
-                    const pathParts = field.path.split('/');
-                    return pathParts[pathParts.length - 2];
+                setAutoMode(index) {
+                    this.results[index].mode = 'auto';
+                    // Reset to default matching logic
+                    if (!this.results[index].noMatch && this.results[index].matchingFields.length > 0) {
+                        this.results[index].currentField = this.results[index].matchingFields[0];
+                    }
                 },
                 
-                updateSelection(index, event) {
-                    const selectedIndex = parseInt(event.target.value);
-                    this.results[index].selectedIndex = selectedIndex;
-                    this.results[index].currentField = this.results[index].matchingFields[selectedIndex];
+                openSearch(index) {
+                    this.currentSearchIndex = index;
+                    this.searchFieldName = this.results[index].fieldName;
+                    this.searchSource = '';
+                    this.showSearchModal = true;
+                },
+                
+                closeSearch() {
+                    this.showSearchModal = false;
+                    this.currentSearchIndex = null;
+                    this.searchFieldName = '';
+                    this.searchSource = '';
+                },
+                
+                selectField(field) {
+                    if (this.currentSearchIndex !== null) {
+                        this.results[this.currentSearchIndex].noMatch = false;
+                        this.results[this.currentSearchIndex].currentField = field;
+                        this.results[this.currentSearchIndex].mode = 'manual';
+                        this.closeSearch();
+                    }
                 },
                 
                 exportResults() {
