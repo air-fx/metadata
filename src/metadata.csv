@@ -1,0 +1,10 @@
+object_type,name,path,classification,pi,pci,treatment
+table,account,adls:/database/account,internal,false,false,default
+field,id,adls:/database/account/id,internal,false,false,default
+field,number,adls:/database/account/number,internal,false,false,default
+field,card_number,adls:/database/account/number,internal,false,false,masked
+table,person,adls:/database/person,internal,false,false,default
+field,id,adls:/database/person/id,internal,false,false,default
+field,name,adls:/database/person/name,internal,false,false,default
+field,date_of_birth,adls:/database/person/date_of_birth,internal,false,false,masked
+field,credit_score,adls:/database/person/credit_score,internal,false,false,rounded
