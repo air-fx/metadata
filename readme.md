@@ -6,7 +6,7 @@ This application provides a web interface that helps classify data extraction fi
 
 ## Features
 
-- Load metadata from Excel files (both default and custom)
+- Load metadata from Excel file (ADIDO and Pipeline info)
 - Enter field names to be classified
 - Automatic matching of field names against existing metadata
 - Manual search functionality for finding specific fields
@@ -53,8 +53,6 @@ For each field, you can:
 ### File Structure
 
 - `index-htmx.html`: Main application file containing HTML, CSS, and JavaScript
-- `src/metadata.xlsx`: Default general metadata file
-- `src/already_requested_metadata.xlsx`: Default already requested metadata file
 
 ### Technologies Used
 
@@ -111,7 +109,6 @@ Internal object schema:
   pi: boolean,
   pci: boolean,
   treatment: string,
-  path: string,
   table_path: string,   // Source
   table_name: string    // Extracted from table_path
 }
@@ -143,17 +140,16 @@ Internal object schema:
 
 ### Key Functions
 
-- `loadDefaultMetadata()`: Loads the default general metadata file
-- `loadDefaultAlreadyRequestedMetadata()`: Loads the default already requested metadata file
-- `loadMetadata(event)`: Loads a custom general metadata file
-- `loadAlreadyRequestedMetadata(event)`: Loads a custom already requested metadata file
-- `processFields()`: Processes the entered field names and finds matches
-- `updateSearchResults()`: Updates the search results based on search criteria
-- `setAutoMode(index)`: Sets a field to auto mode (use automatically found match)
-- `openSearch(index)`: Opens the search modal for a field
-- `selectField(field)`: Selects a field from the search results
-- `exportResults()`: Exports the results as a CSV file
-- `copyAsTable()`: Copies the results as a formatted table
+- `loadMetadataFile(event)`: Loads and processes an Excel file containing metadata from the user's local system
+- `processExcelFile(buffer)`: Processes the Excel file buffer, extracts data from both required sheets, and converts it to the internal data format
+- `processFields()`: Analyzes the entered field names against metadata and finds matches, with options to use only Pipeline data
+- `updateSearchResults()`: Filters metadata based on search criteria in the search modal
+- `setAutoMode(index)`: Reverts a field to using the automatically found match
+- `openSearch(index)`: Opens the search modal for manually finding a field match
+- `selectField(field)`: Selects a field from the search results and applies it to the current field
+- `exportResults()`: Exports the results as a CSV file with Field Name, Business Description, Classification, PCI, PI, and Treatment
+- `copyAsTable()`: Copies the results as a formatted table that can be pasted into other applications
+- `truncateDescription(text, maxLength)`: Helper function to truncate long descriptions for display while preserving full text in tooltips
 
 ### UI Components
 
@@ -172,8 +168,34 @@ The application uses responsive CSS with media queries to adapt to different scr
 
 To use different data sources:
 1. Prepare Excel files with the required columns
-2. Update the sheet names in the code if they differ from the defaults
-3. Either place them in the `src/` directory with the default names or use the custom upload functionality
+2. The Excel file must contain two sheets:
+   - **ADIDO Metadata**: Contains fields that have been previously requested by users
+   - **TDI GI Pipeline**: Contains all fields in the system along with their table information
+3. Use the file browser to upload your Excel file
+4. If you want to prioritize table-based metadata, use the "Use Pipeline data only" checkbox
+
+##### ADIDO Metadata Sheet Requirements
+
+The ADIDO Metadata sheet must contain the following columns:
+- `File Name`: Report name (Source)
+- `Field Name`: Field name (Source Field Name)
+- `Business Description`: Description of the field
+- `Classification`: Security classification
+- `PCI`: PCI-DSS status
+- `PI`: Personal Information status
+- `Data Treatment`: Required data treatment
+
+##### TDI GI Pipeline Sheet Requirements
+
+The TDI GI Pipeline sheet must contain the following columns:
+- `table_path`: Path to the table
+- `Object Type`: Type of object (e.g., "field", "table")
+- `Name`: Field name
+- `Business Description`: Description of the field
+- `Security Classification`: Security classification
+- `PCI-DSS`: PCI-DSS status
+- `PI`: Personal Information status
+- `Data Treatment`: Required data treatment
 
 ## Maintenance and Troubleshooting
 
