@@ -253,6 +253,22 @@
             border-top: 3px solid #3498db;
             animation: spin 1s linear infinite;
         }
+        /* Add hover effect for table rows */
+        tbody tr:hover {
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+
+        /* Add active selection highlight */
+        tbody tr.active-row {
+            background-color: #e0f7fa;
+            border-left: 3px solid #00acc1;
+        }
+
+        /* Ensure the active row highlight persists even on hover */
+        tbody tr.active-row:hover {
+            background-color: #b2ebf2;
+        }
     </style>
 </head>
 <body>
@@ -308,13 +324,18 @@
                 </thead>
                 <tbody id="results-body">
                     <template x-for="(result, index) in results" :key="index">
-                        <tr :data-field-name="result.fieldName">
+                        <tr :data-field-name="result.fieldName" 
+                            :class="{ 'active-row': activeRowIndex === index }"
+                            @click="setActiveRow(index)">
                             <td>
                                 <template x-if="result.noMatch">
                                     <span>-</span>
                                 </template>
                                 <template x-if="!result.noMatch">
-                                    <span x-text="result.currentField.source"></span>
+                                    <div class="tooltip-container">
+                                        <span x-text="truncateDescription(result.currentField.source, 50)"></span>
+                                        <span class="tooltip" x-show="result.currentField.source && result.currentField.source.length > 50" x-text="result.currentField.source"></span>
+                                    </div>
                                 </template>
                             </td>
                             <td>
@@ -322,7 +343,10 @@
                                     <span>-</span>
                                 </template>
                                 <template x-if="!result.noMatch">
-                                    <span x-text="result.currentField.name"></span>
+                                    <div class="tooltip-container">
+                                        <span x-text="truncateDescription(result.currentField.name, 50)"></span>
+                                        <span class="tooltip" x-show="result.currentField.name && result.currentField.name.length > 50" x-text="result.currentField.name"></span>
+                                    </div>
                                 </template>
                             </td>
                             <td x-text="result.fieldName"></td>
@@ -394,8 +418,18 @@
                             <tbody>
                                 <template x-for="(field, index) in filteredSearchResults" :key="index">
                                     <tr>
-                                        <td x-text="field.source"></td>
-                                        <td x-text="field.name"></td>
+                                        <td>
+                                            <div class="tooltip-container">
+                                                <span x-text="truncateDescription(field.source, 50)"></span>
+                                                <span class="tooltip" x-show="field.source && field.source.length > 50" x-text="field.source"></span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="tooltip-container">
+                                                <span x-text="truncateDescription(field.name, 50)"></span>
+                                                <span class="tooltip" x-show="field.name && field.name.length > 50" x-text="field.name"></span>
+                                            </div>
+                                        </td>
                                         <td>
                                             <div class="tooltip-container">
                                                 <span x-text="truncateDescription(field.business_description, 50)"></span>
@@ -441,6 +475,7 @@
                 adidoMetadataCount: 0,
                 pipeMetadataCount: 0,
                 usePipelineOnly: false, // New property for the checkbox
+                activeRowIndex: null, // New property for active row index
                 
                 get canSearch() {
                     return this.searchFieldName.length >= 2 || this.searchSource.length >= 3;
@@ -704,6 +739,9 @@
                 },
                 
                 setAutoMode(index) {
+                    // Set this row as active
+                    this.activeRowIndex = index;
+                    
                     // Restore the original auto-detected result
                     if (this.originalResults[index]) {
                         this.results[index] = JSON.parse(JSON.stringify(this.originalResults[index]));
@@ -712,6 +750,9 @@
                 },
                 
                 openSearch(index) {
+                    // Set this row as active
+                    this.activeRowIndex = index;
+                    
                     this.currentSearchIndex = index;
                     this.searchFieldName = this.results[index].fieldName;
                     this.searchSource = '';
@@ -734,6 +775,9 @@
                         this.results[this.currentSearchIndex].currentField = field;
                         this.results[this.currentSearchIndex].mode = 'manual';
                         this.closeSearch();
+                        
+                        // Maintain active row selection after closing search
+                        this.activeRowIndex = this.currentSearchIndex;
                     }
                 },
                 
@@ -836,6 +880,9 @@
                         text;
                         
                     return displayText;
+                },
+                setActiveRow(index) {
+                    this.activeRowIndex = index;
                 }
             };
         }
