@@ -114,16 +114,21 @@
         .file-input-row {
             display: flex;
             align-items: center;
-            gap: 0.625rem;
+            margin-bottom: 10px;
+        }
+        .file-input-row label {
+            margin-right: 10px;
         }
         .file-input-row button {
             padding: 0.375rem 0.625rem;
         }
         .status-icon {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+        .status-icon span:first-child {
             font-size: 1.2rem;
-            cursor: help;
-            position: relative;
-            display: inline-block;
         }
         .status-icon .tooltip {
             visibility: hidden;
@@ -207,15 +212,6 @@
             border-style: solid;
             border-color: #555 transparent transparent transparent;
         }
-        .sharepoint-input {
-            flex: 1;
-            min-width: 300px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-right: 10px;
-        }
-        
         .file-input-info {
             margin-top: 10px;
             padding: 10px;
@@ -227,17 +223,6 @@
         .file-input-info p {
             margin: 5px 0;
             font-size: 0.9rem;
-        }
-        
-        /* Status icon styles */
-        .status-icon {
-            display: inline-flex;
-            align-items: center;
-            margin-left: 10px;
-        }
-        
-        .status-icon span:first-child {
-            font-size: 1.2rem;
         }
         
         /* Loading animation */
@@ -265,16 +250,12 @@
             <h2>Step 1: Load Metadata File</h2>
             <div class="file-inputs">
                 <div class="file-input-row">
-                    <input type="text" id="sharepoint-url" placeholder="Enter SharePoint URL to Excel file" x-model="sharepointUrl" class="sharepoint-input">
-                    <button @click="loadFromSharepoint()">Load</button>
+                    <label>Browse for Excel file:</label>
+                    <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadataFile($event)">
                     <span class="status-icon" x-show="metadataStatus">
                         <span x-html="metadataStatus.includes('successfully') ? '✅' : (metadataStatus.includes('Loading') ? '⏳' : '❌')"></span>
                         <span class="tooltip" x-text="metadataStatus"></span>
                     </span>
-                </div>
-                <div class="file-input-row">
-                    <label>Or browse for local Excel file:</label>
-                    <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadataFile($event)">
                 </div>
                 <div class="file-input-info" x-show="metadataStatus.includes('successfully')">
                     <p>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</p>
@@ -440,41 +421,15 @@
                 filteredSearchResults: [],
                 metadataStatus: '',
                 originalResults: [], // Store original auto-detected results
-                sharepointUrl: '',
                 adidoMetadataCount: 0,
                 pipeMetadataCount: 0,
                 
                 get canSearch() {
-                    return this.searchFieldName.length >= 2 || this.searchSource.length >= 4;
+                    return this.searchFieldName.length >= 2 || this.searchSource.length >= 3;
                 },
                 
                 init() {
                     // Initialize the application
-                },
-                
-                loadFromSharepoint() {
-                    if (!this.sharepointUrl) {
-                        alert('Please enter a SharePoint URL');
-                        return;
-                    }
-                    
-                    this.metadataStatus = 'Loading metadata from SharePoint...';
-                    
-                    // Use fetch to get the file from SharePoint
-                    fetch(this.sharepointUrl)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.arrayBuffer();
-                        })
-                        .then(buffer => {
-                            this.processExcelFile(buffer);
-                        })
-                        .catch(error => {
-                            console.error('Error loading from SharePoint:', error);
-                            this.metadataStatus = 'Failed to load from SharePoint. Check URL and permissions.';
-                        });
                 },
                 
                 loadMetadataFile(event) {
@@ -758,18 +713,33 @@
                         return;
                     }
                     
-                    let csvContent = 'object_type,name,table_path,business_description,classification,pi,pci,treatment\n';
+                    // Create a CSV with the same columns as the "Copy as Table" function
+                    let csvContent = 'Field Name,Business Description,Classification,PI,PCI,Treatment\n';
                     
+                    // Add each row
                     this.results.forEach(result => {
-                        if (result.noMatch) return;
-                        
-                        // Escape any commas in the business description
-                        const escapedDescription = result.currentField.business_description ? 
-                            `"${result.currentField.business_description.replace(/"/g, '""')}"` : '';
-                        
-                        // Use the original field name for export, but keep all other data from the selected field
-                        const tablePath = result.currentField.table_path || '';
-                        csvContent += `field,${result.fieldName},${tablePath},${escapedDescription},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
+                        if (result.noMatch) {
+                            // Escape field name in case it contains commas
+                            const escapedFieldName = result.fieldName.includes(',') ? 
+                                `"${result.fieldName.replace(/"/g, '""')}"` : result.fieldName;
+                            
+                            csvContent += `${escapedFieldName},,No matching field found,,,\n`;
+                        } else {
+                            // Escape fields that might contain commas
+                            const escapedFieldName = result.fieldName.includes(',') ? 
+                                `"${result.fieldName.replace(/"/g, '""')}"` : result.fieldName;
+                            
+                            const escapedDescription = result.currentField.business_description ? 
+                                `"${result.currentField.business_description.replace(/"/g, '""')}"` : '';
+                            
+                            const escapedClassification = result.currentField.classification ? 
+                                `"${result.currentField.classification.replace(/"/g, '""')}"` : '';
+                            
+                            const escapedTreatment = result.currentField.treatment ? 
+                                `"${result.currentField.treatment.replace(/"/g, '""')}"` : '';
+                            
+                            csvContent += `${escapedFieldName},${escapedDescription},${escapedClassification},${result.currentField.pi === true ? 'Yes' : 'No'},${result.currentField.pci === true ? 'Yes' : 'No'},${escapedTreatment}\n`;
+                        }
                     });
                     
                     this.downloadCSV(csvContent, 'classified_fields.csv');
