@@ -207,6 +207,54 @@
             border-style: solid;
             border-color: #555 transparent transparent transparent;
         }
+        .sharepoint-input {
+            flex: 1;
+            min-width: 300px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        .file-input-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f8ff;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .file-input-info p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+        
+        /* Status icon styles */
+        .status-icon {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+        
+        .status-icon span:first-child {
+            font-size: 1.2rem;
+        }
+        
+        /* Loading animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #3498db;
+            animation: spin 1s linear infinite;
+        }
     </style>
 </head>
 <body>
@@ -214,30 +262,23 @@
         <h1>Data Extraction Field Classifier</h1>
         
         <div>
-            <h2>Step 1: Load Metadata Files</h2>
+            <h2>Step 1: Load Metadata File</h2>
             <div class="file-inputs">
                 <div class="file-input-row">
-                    <button @click="loadDefaultMetadata()">Load Default Metadata</button>
+                    <input type="text" id="sharepoint-url" placeholder="Enter SharePoint URL to Excel file" x-model="sharepointUrl" class="sharepoint-input">
+                    <button @click="loadFromSharepoint()">Load</button>
                     <span class="status-icon" x-show="metadataStatus">
-                        <span x-html="metadataStatus.includes('successfully') ? '✅' : '❌'"></span>
+                        <span x-html="metadataStatus.includes('successfully') ? '✅' : (metadataStatus.includes('Loading') ? '⏳' : '❌')"></span>
                         <span class="tooltip" x-text="metadataStatus"></span>
                     </span>
                 </div>
                 <div class="file-input-row">
-                    <label>Or upload custom Metadata Excel:</label>
-                    <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadata($event)">
+                    <label>Or browse for local Excel file:</label>
+                    <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadataFile($event)">
                 </div>
-                
-                <div class="file-input-row" style="margin-top: 10px;">
-                    <button @click="loadDefaultAlreadyRequestedMetadata()">Load Default Already Requested Metadata</button>
-                    <span class="status-icon" x-show="alreadyRequestedStatus">
-                        <span x-html="alreadyRequestedStatus.includes('successfully') ? '✅' : '❌'"></span>
-                        <span class="tooltip" x-text="alreadyRequestedStatus"></span>
-                    </span>
-                </div>
-                <div class="file-input-row">
-                    <label>Or upload custom Already Requested Metadata Excel:</label>
-                    <input type="file" id="already-requested-file" accept=".xlsx,.xls" @change="loadAlreadyRequestedMetadata($event)">
+                <div class="file-input-info" x-show="metadataStatus.includes('successfully')">
+                    <p>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</p>
+                    <p>✓ TDI GI Pipeline sheet loaded: <span x-text="pipeMetadataCount"></span> records</p>
                 </div>
             </div>
         </div>
@@ -386,8 +427,8 @@
     <script>
         function app() {
             return {
-                metadataData: [],
-                alreadyRequestedData: [],
+                pipeMetadata: [],
+                adidoMetadata: [],
                 fieldNamesText: '',
                 results: [],
                 showResults: false,
@@ -398,22 +439,29 @@
                 currentSearchIndex: null,
                 filteredSearchResults: [],
                 metadataStatus: '',
-                alreadyRequestedStatus: '',
                 originalResults: [], // Store original auto-detected results
+                sharepointUrl: '',
+                adidoMetadataCount: 0,
+                pipeMetadataCount: 0,
                 
                 get canSearch() {
                     return this.searchFieldName.length >= 2 || this.searchSource.length >= 4;
                 },
                 
                 init() {
-                    // Load default metadata files on page load
-                    // this.loadDefaultMetadata();
-                    // this.loadDefaultAlreadyRequestedMetadata();
+                    // Initialize the application
                 },
                 
-                loadDefaultMetadata() {
-                    this.metadataStatus = 'Loading...';
-                    fetch('src/metadata.xlsx')
+                loadFromSharepoint() {
+                    if (!this.sharepointUrl) {
+                        alert('Please enter a SharePoint URL');
+                        return;
+                    }
+                    
+                    this.metadataStatus = 'Loading metadata from SharePoint...';
+                    
+                    // Use fetch to get the file from SharePoint
+                    fetch(this.sharepointUrl)
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
@@ -421,77 +469,59 @@
                             return response.arrayBuffer();
                         })
                         .then(buffer => {
-                            const data = new Uint8Array(buffer);
-                            const workbook = XLSX.read(data, { type: 'array' });
-                            const worksheet = workbook.Sheets['metadata'];
-                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                            this.metadataData = this.mapMetadataToInternalSchema(jsonData);
-                            this.metadataStatus = 'Default metadata loaded successfully!';
+                            this.processExcelFile(buffer);
                         })
                         .catch(error => {
-                            console.error('Error loading default metadata:', error);
-                            this.metadataStatus = 'Error loading default metadata. Please upload manually.';
+                            console.error('Error loading from SharePoint:', error);
+                            this.metadataStatus = 'Failed to load from SharePoint. Check URL and permissions.';
                         });
                 },
                 
-                loadDefaultAlreadyRequestedMetadata() {
-                    this.alreadyRequestedStatus = 'Loading...';
-                    fetch('src/already_requested_metadata.xlsx')
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Network response was not ok');
-                            }
-                            return response.arrayBuffer();
-                        })
-                        .then(buffer => {
-                            const data = new Uint8Array(buffer);
-                            const workbook = XLSX.read(data, { type: 'array' });
-                            const worksheet = workbook.Sheets['ADIDO Metadata'];
-                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                            this.alreadyRequestedData = this.mapAlreadyRequestedToInternalSchema(jsonData);
-                            this.alreadyRequestedStatus = 'Default already requested metadata loaded successfully!';
-                        })
-                        .catch(error => {
-                            console.error('Error loading default already requested metadata:', error);
-                            this.alreadyRequestedStatus = 'Error loading default already requested metadata. Please upload manually.';
-                        });
-                },
-                
-                loadMetadata(event) {
+                loadMetadataFile(event) {
                     const file = event.target.files[0];
                     if (!file) return;
                     
+                    this.metadataStatus = 'Loading metadata file...';
+                    
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const worksheet = workbook.Sheets['metadata'];
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                        this.metadataData = this.mapMetadataToInternalSchema(jsonData);
-                        this.metadataStatus = 'Custom metadata loaded successfully!';
+                        this.processExcelFile(e.target.result);
                     };
                     reader.readAsArrayBuffer(file);
                 },
                 
-                loadAlreadyRequestedMetadata(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const data = new Uint8Array(e.target.result);
+                processExcelFile(buffer) {
+                    try {
+                        const data = new Uint8Array(buffer);
                         const workbook = XLSX.read(data, { type: 'array' });
-                        const worksheet = workbook.Sheets['data'];
-                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-                        this.alreadyRequestedData = this.mapAlreadyRequestedToInternalSchema(jsonData);
-                        this.alreadyRequestedStatus = 'Custom already requested metadata loaded successfully!';
-                    };
-                    reader.readAsArrayBuffer(file);
+                        
+                        // Check if both required sheets exist
+                        if (!workbook.SheetNames.includes('ADIDO Metadata') || !workbook.SheetNames.includes('TDI GI Pipeline')) {
+                            throw new Error('Excel file must contain both "ADIDO Metadata" and "TDI GI Pipeline" sheets');
+                        }
+                        
+                        // Process ADIDO Metadata sheet
+                        const adidoWorksheet = workbook.Sheets['ADIDO Metadata'];
+                        const adidoJsonData = XLSX.utils.sheet_to_json(adidoWorksheet);
+                        this.adidoMetadata = this.mapAdidoMetadataToInternalSchema(adidoJsonData);
+                        this.adidoMetadataCount = this.adidoMetadata.length;
+                        
+                        // Process TDI GI Pipeline sheet
+                        const pipeWorksheet = workbook.Sheets['TDI GI Pipeline'];
+                        const pipeJsonData = XLSX.utils.sheet_to_json(pipeWorksheet);
+                        this.pipeMetadata = this.mapPipeMetadataToInternalSchema(pipeJsonData);
+                        this.pipeMetadataCount = this.pipeMetadata.length;
+                        
+                        this.metadataStatus = 'Metadata loaded successfully!';
+                    } catch (error) {
+                        console.error('Error processing Excel file:', error);
+                        this.metadataStatus = `Failed to process Excel file: ${error.message}`;
+                    }
                 },
                 
-                // Map metadata Excel data to internal schema
-                mapMetadataToInternalSchema(data) {
-                    console.log('Raw metadata data:', data);
+                // Map pipe metadata Excel data to internal schema
+                mapPipeMetadataToInternalSchema(data) {
+                    console.log('Raw pipe metadata data:', data);
                     return data.map(item => {
                         // Extract table path from the path field
                         let tablePath = '';
@@ -529,9 +559,9 @@
                     });
                 },
                 
-                // Map already requested metadata Excel data to internal schema
-                mapAlreadyRequestedToInternalSchema(data) {
-                    console.log('Raw already requested data:', data);
+                // Map ADIDO metadata Excel data to internal schema
+                mapAdidoMetadataToInternalSchema(data) {
+                    console.log('Raw ADIDO metadata data:', data);
                     return data.map(item => {
                         // Convert PI and PCI to boolean values if they're strings
                         const pi = typeof item['PI'] === 'string' ? 
@@ -555,8 +585,8 @@
                 },
                 
                 processFields() {
-                    if (this.metadataData.length === 0 && this.alreadyRequestedData.length === 0) {
-                        alert('Please load at least one metadata file first!');
+                    if (this.pipeMetadata.length === 0 && this.adidoMetadata.length === 0) {
+                        alert('Please load the metadata file first!');
                         return;
                     }
                     
@@ -568,14 +598,14 @@
                     }
                     
                     this.results = fieldNames.map(fieldName => {
-                        // First check in already requested data (higher priority)
-                        const alreadyRequestedMatches = this.alreadyRequestedData.filter(item => 
+                        // First check in ADIDO metadata (higher priority)
+                        const adidoMatches = this.adidoMetadata.filter(item => 
                             item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
                         );
                         
-                        if (alreadyRequestedMatches.length > 0) {
+                        if (adidoMatches.length > 0) {
                             // Add source information
-                            const enhancedMatches = alreadyRequestedMatches.map(match => {
+                            const enhancedMatches = adidoMatches.map(match => {
                                 return {
                                     source: match.report_file || 'Unknown Report',
                                     name: match.field_name,
@@ -585,7 +615,7 @@
                                     pci: match.pci,
                                     treatment: match.treatment || '',
                                     table_path: '',
-                                    from_source: 'already_requested'
+                                    from_source: 'adido'
                                 };
                             });
                             
@@ -598,14 +628,14 @@
                             };
                         }
                         
-                        // Then check in metadata
-                        const metadataMatches = this.metadataData.filter(item => 
+                        // Then check in pipe metadata
+                        const pipeMatches = this.pipeMetadata.filter(item => 
                             item.object_type === 'field' && item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
                         );
                         
-                        if (metadataMatches.length > 0) {
+                        if (pipeMatches.length > 0) {
                             // Add source information
-                            const enhancedMatches = metadataMatches.map(match => {
+                            const enhancedMatches = pipeMatches.map(match => {
                                 return {
                                     source: match.table_name || 'Unknown Table',
                                     name: match.field_name,
@@ -615,7 +645,7 @@
                                     pci: match.pci,
                                     treatment: match.treatment || '',
                                     table_path: match.table_path || '',
-                                    from_source: 'metadata'
+                                    from_source: 'pipe'
                                 };
                             });
                             
@@ -650,7 +680,7 @@
                     
                     // Combine both data sources
                     const allFields = [
-                        ...this.alreadyRequestedData.map(item => {
+                        ...this.adidoMetadata.map(item => {
                             return {
                                 source: item.report_file || 'Unknown Report',
                                 name: item.field_name,
@@ -660,10 +690,10 @@
                                 pci: item.pci,
                                 treatment: item.treatment || '',
                                 table_path: '',
-                                from_source: 'already_requested'
+                                from_source: 'adido'
                             };
                         }),
-                        ...this.metadataData.filter(item => item.object_type === 'field').map(item => {
+                        ...this.pipeMetadata.filter(item => item.object_type === 'field').map(item => {
                             return {
                                 source: item.table_name || 'Unknown Table',
                                 name: item.field_name,
@@ -673,7 +703,7 @@
                                 pci: item.pci,
                                 treatment: item.treatment || '',
                                 table_path: item.table_path || '',
-                                from_source: 'metadata'
+                                from_source: 'pipe'
                             };
                         })
                     ];
