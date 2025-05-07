@@ -12,7 +12,8 @@ There are 2 csv files that contain metadata:
 
 Once user entered field names, the app will search for field name matches and display the results.
 Results table should contain following columns:
-- Source - existing report name (if found in already_requested_metadata.csv) or table name if found in tables list (metadata.csv). 
+- Source - existing report name (if found in already_requested_metadata.csv) or table name if found in tables list (metadata.csv).
+- Source Field Name -- initially the same value as Field Name. However if user selected different field from the Quick Search Popup, this column will be updated with the selected field name.
 - Field name
 - Classification
 - PI
@@ -26,7 +27,7 @@ Input fields are:
 - Field name
 - Source - source can be a report name (if found in already_requested_metadata.csv) or table name if found in tables list (metadata.csv). 
 
-Results table should contain following columns:
+Popup results table should contain following columns:
 - Source (report name or table name where the field was found)
 - Field name
 - Classification

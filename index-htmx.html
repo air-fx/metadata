@@ -88,6 +88,10 @@
             padding: 5px 10px;
             font-size: 0.9em;
         }
+        button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -121,8 +125,8 @@
                 <thead>
                     <tr>
                         <th>Source</th>
+                        <th>Source Field</th>
                         <th>Field Name</th>
-                        <th>Path</th>
                         <th>Classification</th>
                         <th>PI</th>
                         <th>PCI</th>
@@ -141,16 +145,23 @@
                                     <span x-text="result.currentField.source"></span>
                                 </template>
                             </td>
+                            <td>
+                                <template x-if="result.noMatch">
+                                    <span>-</span>
+                                </template>
+                                <template x-if="!result.noMatch">
+                                    <span x-text="result.currentField.name"></span>
+                                </template>
+                            </td>
                             <td x-text="result.fieldName"></td>
-                            <td x-text="result.noMatch ? 'No matching field found' : result.currentField.path" :colspan="result.noMatch ? 5 : 1"></td>
-                            <td x-text="result.noMatch ? '' : result.currentField.classification" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? 'No matching field found' : result.currentField.classification" :colspan="result.noMatch ? 4 : 1"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.pi" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.pci" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
                             <td>
                                 <div class="action-buttons">
                                     <button @click="setAutoMode(index)" :class="{ 'active': result.mode === 'auto' }">Auto</button>
-                                    <button @click="openSearch(index)">Search</button>
+                                    <button @click="openSearch(index)" :class="{ 'active': result.mode === 'manual' }">Search</button>
                                 </div>
                             </td>
                         </tr>
@@ -176,7 +187,6 @@
                             <tr>
                                 <th>Source</th>
                                 <th>Field Name</th>
-                                <th>Path</th>
                                 <th>Classification</th>
                                 <th>PI</th>
                                 <th>PCI</th>
@@ -189,7 +199,6 @@
                                 <tr>
                                     <td x-text="field.source"></td>
                                     <td x-text="field.name"></td>
-                                    <td x-text="field.path"></td>
                                     <td x-text="field.classification"></td>
                                     <td x-text="field.pi"></td>
                                     <td x-text="field.pci"></td>
@@ -227,14 +236,16 @@
                     const allFields = [
                         ...this.alreadyRequestedData.map(item => ({
                             ...item,
-                            source: item.report || 'Unknown Report'
+                            source: item.report || 'Unknown Report',
+                            name: item.name
                         })),
                         ...this.metadataData.filter(item => item.object_type === 'field').map(item => {
                             const pathParts = item.path.split('/');
                             const tableName = pathParts[pathParts.length - 2];
                             return {
                                 ...item,
-                                source: tableName
+                                source: tableName,
+                                name: item.name
                             };
                         })
                     ];
@@ -316,8 +327,8 @@
                             // Add source information
                             const enhancedMatches = alreadyRequestedMatches.map(match => ({
                                 ...match,
-                                path: match.path || `report/${match.report}/${match.name}`,
-                                source: match.report || 'Unknown Report'
+                                source: match.report || 'Unknown Report',
+                                name: match.name
                             }));
                             
                             return {
@@ -341,7 +352,8 @@
                                 const tableName = pathParts[pathParts.length - 2];
                                 return {
                                     ...match,
-                                    source: tableName
+                                    source: tableName,
+                                    name: match.name
                                 };
                             });
                             
@@ -407,7 +419,8 @@
                     this.results.forEach(result => {
                         if (result.noMatch) return;
                         
-                        csvContent += `field,${result.fieldName},${result.currentField.path},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
+                        // Use the original field name for export, but keep all other data from the selected field
+                        csvContent += `field,${result.fieldName},${result.currentField.path || ''},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
                     });
                     
                     this.downloadCSV(csvContent, 'classified_fields.csv');
