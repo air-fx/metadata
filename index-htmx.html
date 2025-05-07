@@ -6,6 +6,8 @@
     <title>Data Extraction Field Classifier</title>
     <!-- Alpine.js for state management -->
     <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
+    <!-- SheetJS for Excel file handling -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -125,8 +127,8 @@
                     <span x-text="metadataStatus"></span>
                 </div>
                 <div class="file-input-row">
-                    <label>Or upload custom Metadata CSV:</label>
-                    <input type="file" id="metadata-file" accept=".csv" @change="loadMetadata($event)">
+                    <label>Or upload custom Metadata Excel:</label>
+                    <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadata($event)">
                 </div>
                 
                 <div class="file-input-row" style="margin-top: 10px;">
@@ -134,8 +136,8 @@
                     <span x-text="alreadyRequestedStatus"></span>
                 </div>
                 <div class="file-input-row">
-                    <label>Or upload custom Already Requested Metadata CSV:</label>
-                    <input type="file" id="already-requested-file" accept=".csv" @change="loadAlreadyRequestedMetadata($event)">
+                    <label>Or upload custom Already Requested Metadata Excel:</label>
+                    <input type="file" id="already-requested-file" accept=".xlsx,.xls" @change="loadAlreadyRequestedMetadata($event)">
                 </div>
             </div>
         </div>
@@ -292,15 +294,19 @@
                 
                 loadDefaultMetadata() {
                     this.metadataStatus = 'Loading...';
-                    fetch('src/metadata.csv')
+                    fetch('src/metadata.xlsx')
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
                             }
-                            return response.text();
+                            return response.arrayBuffer();
                         })
-                        .then(content => {
-                            this.metadataData = this.parseCSV(content);
+                        .then(buffer => {
+                            const data = new Uint8Array(buffer);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const worksheet = workbook.Sheets['metadata'];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                            this.metadataData = jsonData;
                             this.metadataStatus = 'Default metadata loaded successfully!';
                         })
                         .catch(error => {
@@ -311,15 +317,19 @@
                 
                 loadDefaultAlreadyRequestedMetadata() {
                     this.alreadyRequestedStatus = 'Loading...';
-                    fetch('src/already_requested_metadata.csv')
+                    fetch('src/already_requested_metadata.xlsx')
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
                             }
-                            return response.text();
+                            return response.arrayBuffer();
                         })
-                        .then(content => {
-                            this.alreadyRequestedData = this.parseCSV(content);
+                        .then(buffer => {
+                            const data = new Uint8Array(buffer);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const worksheet = workbook.Sheets['data'];
+                            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                            this.alreadyRequestedData = jsonData;
                             this.alreadyRequestedStatus = 'Default already requested metadata loaded successfully!';
                         })
                         .catch(error => {
@@ -368,11 +378,14 @@
                     
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        const content = e.target.result;
-                        this.metadataData = this.parseCSV(content);
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const worksheet = workbook.Sheets['metadata'];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        this.metadataData = jsonData;
                         this.metadataStatus = 'Custom metadata loaded successfully!';
                     };
-                    reader.readAsText(file);
+                    reader.readAsArrayBuffer(file);
                 },
                 
                 loadAlreadyRequestedMetadata(event) {
@@ -381,11 +394,14 @@
                     
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        const content = e.target.result;
-                        this.alreadyRequestedData = this.parseCSV(content);
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const worksheet = workbook.Sheets['data'];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        this.alreadyRequestedData = jsonData;
                         this.alreadyRequestedStatus = 'Custom already requested metadata loaded successfully!';
                     };
-                    reader.readAsText(file);
+                    reader.readAsArrayBuffer(file);
                 },
                 
                 parseCSV(content) {

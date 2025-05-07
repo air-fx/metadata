@@ -9,7 +9,7 @@ field,name,adls:/database/person/name,internal,false,false,default
 field,date_of_birth,adls:/database/person/date_of_birth,internal,false,false,masked
 field,credit_score,adls:/database/person/credit_score,internal,false,false,rounded
 table,payments,adls:/database/payments,internal,false,false,default
-field,id,adls:/database/payments/id,internal,false,false,default
+field,"id",adls:/database/payments/id,internal,false,false,default
 field,account_id,adls:/database/payments/account_id,internal,false,false,default
 field,card_number,adls:/database/payments/card_number,internal,false,false,masked
 field,date,adls:/database/payments/date,internal,false,false,none
