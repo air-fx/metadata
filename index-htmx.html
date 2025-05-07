@@ -165,6 +165,48 @@
                 font-size: 20px; /* Base font size for extra large screens */
             }
         }
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip-container .tooltip {
+            visibility: hidden;
+            width: 250px;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1001;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: pre-line; /* Preserve line breaks */
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Add a small arrow to the tooltip */
+        .tooltip-container .tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
     </style>
 </head>
 <body>
@@ -217,6 +259,7 @@
                         <th>Source</th>
                         <th>Source Field</th>
                         <th>Field Name</th>
+                        <th>Business Description</th>
                         <th>Classification</th>
                         <th>PI</th>
                         <th>PCI</th>
@@ -244,6 +287,17 @@
                                 </template>
                             </td>
                             <td x-text="result.fieldName"></td>
+                            <td>
+                                <template x-if="result.noMatch">
+                                    <span>-</span>
+                                </template>
+                                <template x-if="!result.noMatch">
+                                    <div class="tooltip-container">
+                                        <span x-text="truncateDescription(result.currentField.business_description, 50)"></span>
+                                        <span class="tooltip" x-show="result.currentField.business_description && result.currentField.business_description.length > 50" x-text="result.currentField.business_description"></span>
+                                    </div>
+                                </template>
+                            </td>
                             <td x-text="result.noMatch ? 'No matching field found' : result.currentField.classification" :colspan="result.noMatch ? 4 : 1"></td>
                             <td x-text="result.noMatch ? '' : (result.currentField.pi === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : (result.currentField.pci === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
@@ -290,6 +344,7 @@
                                 <tr>
                                     <th>Source</th>
                                     <th>Field Name</th>
+                                    <th>Business Description</th>
                                     <th>Classification</th>
                                     <th>PI</th>
                                     <th>PCI</th>
@@ -302,6 +357,12 @@
                                     <tr>
                                         <td x-text="field.source"></td>
                                         <td x-text="field.name"></td>
+                                        <td>
+                                            <div class="tooltip-container">
+                                                <span x-text="truncateDescription(field.business_description, 50)"></span>
+                                                <span class="tooltip" x-show="field.business_description && field.business_description.length > 50" x-text="field.business_description"></span>
+                                            </div>
+                                        </td>
                                         <td x-text="field.classification"></td>
                                         <td x-text="field.pi === true ? 'Yes' : 'No'"></td>
                                         <td x-text="field.pci === true ? 'Yes' : 'No'"></td>
@@ -440,7 +501,7 @@
                             const pathParts = item.table_path.split('/');
                             if (pathParts.length >= 2) {
                                 tablePath = pathParts.slice(0, -1).join('/');
-                                tableName = pathParts[pathParts.length - 1] || 'Unknown Table';
+                                tableName = pathParts[pathParts.length - 2] || 'Unknown Table';
                             }
                         }
                         
@@ -453,11 +514,10 @@
                             (item['PCI-DSS'].toLowerCase() === 'true' || item['PCI-DSS'] === '1' || item['PCI-DSS'].toLowerCase() === 'yes') : 
                             Boolean(item['PCI-DSS']);
                         
-                        console.log(`Field: ${item['Name']}, PI: ${item['PI']} (${typeof item['PI']}) → ${pi}, PCI: ${item['PCI-DSS']} (${typeof item['PCI-DSS']}) → ${pci}`);
-                        
                         return {
                             object_type: item['Object Type'] || '',
                             field_name: item['Name'] || '',
+                            business_description: item['Business Description'] || '',
                             classification: item['Security Classification'] || '',
                             pi: pi,
                             pci: pci,
@@ -482,11 +542,10 @@
                             (item['PCI'].toLowerCase() === 'true' || item['PCI'] === '1' || item['PCI'].toLowerCase() === 'yes') : 
                             Boolean(item['PCI']);
                         
-                        console.log(`Field: ${item['Field Name']}, PI: ${item['PI']} (${typeof item['PI']}) → ${pi}, PCI: ${item['PCI']} (${typeof item['PCI']}) → ${pci}`);
-                        
                         return {
                             report_file: item['File Name'] || '',
                             field_name: item['Field Name'] || '',
+                            business_description: item['Business Description'] || '',
                             classification: item['Classification'] || '',
                             pi: pi,
                             pci: pci,
@@ -520,6 +579,7 @@
                                 return {
                                     source: match.report_file || 'Unknown Report',
                                     name: match.field_name,
+                                    business_description: match.business_description || '',
                                     classification: match.classification || '',
                                     pi: match.pi,
                                     pci: match.pci,
@@ -549,6 +609,7 @@
                                 return {
                                     source: match.table_name || 'Unknown Table',
                                     name: match.field_name,
+                                    business_description: match.business_description || '',
                                     classification: match.classification || '',
                                     pi: match.pi,
                                     pci: match.pci,
@@ -593,6 +654,7 @@
                             return {
                                 source: item.report_file || 'Unknown Report',
                                 name: item.field_name,
+                                business_description: item.business_description || '',
                                 classification: item.classification || '',
                                 pi: item.pi,
                                 pci: item.pci,
@@ -605,6 +667,7 @@
                             return {
                                 source: item.table_name || 'Unknown Table',
                                 name: item.field_name,
+                                business_description: item.business_description || '',
                                 classification: item.classification || '',
                                 pi: item.pi,
                                 pci: item.pci,
@@ -665,14 +728,18 @@
                         return;
                     }
                     
-                    let csvContent = 'object_type,name,table_path,classification,pi,pci,treatment\n';
+                    let csvContent = 'object_type,name,table_path,business_description,classification,pi,pci,treatment\n';
                     
                     this.results.forEach(result => {
                         if (result.noMatch) return;
                         
+                        // Escape any commas in the business description
+                        const escapedDescription = result.currentField.business_description ? 
+                            `"${result.currentField.business_description.replace(/"/g, '""')}"` : '';
+                        
                         // Use the original field name for export, but keep all other data from the selected field
                         const tablePath = result.currentField.table_path || '';
-                        csvContent += `field,${result.fieldName},${tablePath},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
+                        csvContent += `field,${result.fieldName},${tablePath},${escapedDescription},${result.currentField.classification},${result.currentField.pi},${result.currentField.pci},${result.currentField.treatment}\n`;
                     });
                     
                     this.downloadCSV(csvContent, 'classified_fields.csv');
@@ -685,14 +752,14 @@
                     }
                     
                     // Create a table with the specified columns
-                    let tableContent = '';
+                    let tableContent = 'Field Name\tBusiness Description\tClassification\tPI\tPCI\tTreatment\n';
                     
                     // Add each row
                     this.results.forEach(result => {
                         if (result.noMatch) {
-                            tableContent += `${result.fieldName}\tNo matching field found\t\t\t\n`;
+                            tableContent += `${result.fieldName}\t\tNo matching field found\t\t\t\n`;
                         } else {
-                            tableContent += `${result.fieldName}\t${result.currentField.classification}\t${result.currentField.pi}\t${result.currentField.pci}\t${result.currentField.treatment}\n`;
+                            tableContent += `${result.fieldName}\t${result.currentField.business_description || ''}\t${result.currentField.classification || ''}\t${result.currentField.pi === true ? 'Yes' : 'No'}\t${result.currentField.pci === true ? 'Yes' : 'No'}\t${result.currentField.treatment || ''}\n`;
                         }
                     });
                     
@@ -727,6 +794,18 @@
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
+                },
+                
+                // Helper function to truncate text and preserve line breaks for display
+                truncateDescription(text, maxLength = 50) {
+                    if (!text) return '';
+                    
+                    // Replace line breaks with a visible character for display
+                    const displayText = text.length > maxLength ? 
+                        text.substring(0, maxLength) + '...' : 
+                        text;
+                        
+                    return displayText;
                 }
             };
         }

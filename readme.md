@@ -23,6 +23,7 @@ File schema (required fields only, there are more on the sheet):
 Use following schema for internal objects:
 - report_file  -- consider that it's a Source
 - field_name  -- consider that it's a Source Field Name
+- business_description
 - classification
 - pi
 - pci
@@ -31,7 +32,7 @@ Use following schema for internal objects:
 2. `metadata` - contains all fields in the system along with the table name it can be found in.
 That's an excel file. Data sheet name: `TDI GI Pipeline`.
 File schema (required fields only, there are more on the sheet):
-- table_path
+- table_path (that's the exact column name - including underscore)
 - Object Type
 - Name 
 - Business Description
@@ -43,6 +44,7 @@ Use following schema for internal objects:
 - table_path -- consider that it's a Source
 - objet_type
 - field_name -- consider that it's a Source Field Name
+- business_description
 - classification
 - pi
 - pci
@@ -53,6 +55,7 @@ Results table should contain following columns:
 - Source - existing report name (if found in already_requested_metadata.csv) or table name if found in tables list (metadata.csv).
 - Source Field Name -- initially the same value as Field Name. However if user selected different field from the Quick Search Popup, this column will be updated with the selected field name.
 - Field Name
+- Business Description  -- truncate to 50 chars and show tooltip with full value on hover
 - Classification
 - PCI
 - PI
@@ -68,6 +71,7 @@ Input fields are:
 Popup results table should contain following columns:
 - Source (report name or table name where the field was found)
 - Field Name
+- Business Description  -- truncate to 50 chars and show tooltip with full value on hover
 - Classification
 - PCI
 - PI
