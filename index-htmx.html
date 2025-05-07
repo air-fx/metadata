@@ -300,8 +300,8 @@
                         <th>Field Name</th>
                         <th>Business Description</th>
                         <th>Classification</th>
-                        <th>PI</th>
                         <th>PCI</th>
+                        <th>PI</th>
                         <th>Treatment</th>
                         <th>Actions</th>
                     </tr>
@@ -338,8 +338,8 @@
                                 </template>
                             </td>
                             <td x-text="result.noMatch ? 'No matching field found' : result.currentField.classification" :colspan="result.noMatch ? 4 : 1"></td>
-                            <td x-text="result.noMatch ? '' : (result.currentField.pi === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : (result.currentField.pci === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
+                            <td x-text="result.noMatch ? '' : (result.currentField.pi === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
                             <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
                             <td>
                                 <div class="action-buttons">
@@ -385,8 +385,8 @@
                                     <th>Field Name</th>
                                     <th>Business Description</th>
                                     <th>Classification</th>
-                                    <th>PI</th>
                                     <th>PCI</th>
+                                    <th>PI</th>
                                     <th>Treatment</th>
                                     <th>Action</th>
                                 </tr>
@@ -403,8 +403,8 @@
                                             </div>
                                         </td>
                                         <td x-text="field.classification"></td>
-                                        <td x-text="field.pi === true ? 'Yes' : 'No'"></td>
                                         <td x-text="field.pci === true ? 'Yes' : 'No'"></td>
+                                        <td x-text="field.pi === true ? 'Yes' : 'No'"></td>
                                         <td x-text="field.treatment"></td>
                                         <td>
                                             <button @click="selectField(field)">Select</button>
@@ -744,7 +744,7 @@
                     }
                     
                     // Create a CSV with the same columns as the "Copy as Table" function
-                    let csvContent = 'Field Name,Business Description,Classification,PI,PCI,Treatment\n';
+                    let csvContent = 'Field Name,Business Description,Classification,PCI,PI,Treatment\n';
                     
                     // Add each row
                     this.results.forEach(result => {
@@ -768,7 +768,7 @@
                             const escapedTreatment = result.currentField.treatment ? 
                                 `"${result.currentField.treatment.replace(/"/g, '""')}"` : '';
                             
-                            csvContent += `${escapedFieldName},${escapedDescription},${escapedClassification},${result.currentField.pi === true ? 'Yes' : 'No'},${result.currentField.pci === true ? 'Yes' : 'No'},${escapedTreatment}\n`;
+                            csvContent += `${escapedFieldName},${escapedDescription},${escapedClassification},${result.currentField.pci === true ? 'Yes' : 'No'},${result.currentField.pi === true ? 'Yes' : 'No'},${escapedTreatment}\n`;
                         }
                     });
                     
@@ -782,14 +782,14 @@
                     }
                     
                     // Create a table with the specified columns
-                    let tableContent = 'Field Name\tBusiness Description\tClassification\tPI\tPCI\tTreatment\n';
+                    let tableContent = '' //do not export column names: 'Field Name\tBusiness Description\tClassification\tPCI\tPI\tTreatment\n';
                     
                     // Add each row
                     this.results.forEach(result => {
                         if (result.noMatch) {
                             tableContent += `${result.fieldName}\t\tNo matching field found\t\t\t\n`;
                         } else {
-                            tableContent += `${result.fieldName}\t${result.currentField.business_description || ''}\t${result.currentField.classification || ''}\t${result.currentField.pi === true ? 'Yes' : 'No'}\t${result.currentField.pci === true ? 'Yes' : 'No'}\t${result.currentField.treatment || ''}\n`;
+                            tableContent += `${result.fieldName}\t${result.currentField.business_description || ''}\t${result.currentField.classification || ''}\t${result.currentField.pci === true ? 'Yes' : 'No'}\t${result.currentField.pi === true ? 'Yes' : 'No'}\t${result.currentField.treatment || ''}\n`;
                         }
                     });
                     
