@@ -28,6 +28,7 @@
             --primary-hover: #2563eb;
             --secondary: #d64707;
             --secondary-hover: #cd5f24;
+            --hover-row-color: rgba(59, 130, 246, 0.15);
         }
 
         /* Light mode styles */
@@ -43,6 +44,7 @@
             --primary-hover: #2563eb;
             --secondary: #d64707;
             --secondary-hover: #cd5f24;
+            --hover-row-color: rgba(59, 130, 246, 0.1);
         }
 
         body {
@@ -266,7 +268,24 @@
 
         /* Active row highlighting */
         .active-row {
-            background-color: rgba(59, 130, 246, 0.1);
+            background-color: var(--hover-row-color) !important;
+        }
+
+        /* Make sure active row + hover is even more prominent */
+        .active-row:hover {
+            background-color: rgba(59, 130, 246, 0.25) !important;
+        }
+
+        /* Results table hover effect */
+        #results-body tr:hover {
+            background-color: var(--hover-row-color);
+            cursor: pointer;
+        }
+
+        /* Search results table hover effect */
+        .search-results table tbody tr:hover {
+            background-color: var(--hover-row-color);
+            cursor: pointer;
         }
 
         /* Results buttons */
@@ -306,6 +325,44 @@
         .tooltip-container {
             position: relative;
             display: inline-block;
+        }
+
+        .tooltip-container .tooltip {
+            visibility: hidden;
+            width: 18rem;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 0.375rem;
+            padding: 0.5rem;
+            position: absolute;
+            z-index: 1001;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: pre-line; /* Preserve line breaks */
+            font-size: 0.8rem;
+            max-height: 12.5rem;
+            overflow-y: auto;
+        }
+
+        .tooltip-container:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Add a small arrow to the tooltip */
+        .tooltip-container .tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -0.3125rem;
+            border-width: 0.3125rem;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
         }
 
         /* Modal styles */
@@ -696,11 +753,12 @@
                     let tablePath = '';
                     let tableName = 'Unknown Table';
 
+                    // table name is in the last position
                     if (item.table_path) {
                         const pathParts = item.table_path.split('/');
                         if (pathParts.length >= 2) {
                             tablePath = pathParts.slice(0, -1).join('/');
-                            tableName = pathParts[pathParts.length - 2] || 'Unknown Table';
+                            tableName = pathParts[pathParts.length - 1] || 'Unknown Table';
                         }
                     }
 
@@ -714,7 +772,7 @@
                         Boolean(item['PCI-DSS']);
 
                     return {
-                        object_type: item['Object Type'] || '',
+                        object_type: item['Object Type'] ? item['Object Type'].toLowerCase() : '',
                         field_name: item['Name'] || '',
                         business_description: item['Business Description'] || '',
                         classification: item['Security Classification'] || '',
