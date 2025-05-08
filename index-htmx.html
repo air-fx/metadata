@@ -8,63 +8,307 @@
     <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
     <!-- SheetJS for Excel file handling -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.5.10/css/pico.min.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 75rem;
-            margin: 0 auto;
-            padding: 1.25rem;
-            font-size: 0.875rem;
+        /* Scale down the entire UI */
+        :root {
+            font-size: 14px; /* Reduced from default 16px */
         }
-        .container {
+
+        /* Dark mode styles */
+        [data-theme="dark"] {
+            --background-color: #2480c5;
+            --new-background-color: #11191f;
+            --color: #f2f2f2;
+            --card-background-color: #1e2a36;
+            --card-border-color: #374956;
+            --form-element-background-color: #1e2a36;
+            --form-element-border-color: #374956;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #d64707;
+            --secondary-hover: #cd5f24;
+        }
+
+        /* Light mode styles */
+        [data-theme="light"] {
+            --background-color: #c83535;
+            --new-background-color: #e8ece9;
+            --color: #11191f;
+            --card-background-color: #f9fafb;
+            --card-border-color: #e5e7eb;
+            --form-element-background-color: #ffffff;
+            --form-element-border-color: #d1d5db;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #d64707;
+            --secondary-hover: #cd5f24;
+        }
+
+        body {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        html {
+            background-color: var(--new-background-color);
+            /*background-color: #336699;*/
+        }
+
+        /* Card styles */
+        .card {
             display: flex;
             flex-direction: column;
-            gap: 1.25rem;
+            background-color: var(--card-background-color);
+            border: 1px solid var(--card-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
-        textarea {
-            width: 100%;
-            height: 6.25rem;
-            padding: 0.625rem;
+
+        .card h2 {
+            /*flex: 0 0 auto;*/
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+        }
+
+        .info-box {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--primary);
+            padding: 0.75rem;
+            margin-bottom: 1rem;
             font-size: 0.9rem;
+            border-radius: 0.25rem;
         }
-        table {
-            border-collapse: collapse;
-            width: 100%;
+
+        /*.field-names-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 120px;
+            !*margin-bottom: 1rem;*!
+        }*/
+
+        #field-names {
+            flex: 1;
+            min-height: 120px;
+            height: 100%;
+            resize: vertical;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 0.3125rem 0.375rem;
-            text-align: left;
-            font-size: 0.6875rem;
+
+        /* Grid layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
         }
-        th {
-            background-color: #f2f2f2;
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
         }
+
+        /* Button and form adjustments */
         .buttons {
             display: flex;
-            gap: 0.625rem;
             align-items: center;
+            gap: 1rem;
+            /*flex: 0 0 auto;*/
+            /*flex-wrap: wrap;*/
+            /*width: 100%;*/
+            /*flex-direction: row;*/
         }
+
+        .process-button {
+            flex: 0 1 content;
+            /*white-space: wrap;*/
+            padding: 0.5rem 0.5rem;
+        }
+
         .checkbox-container {
             display: flex;
             align-items: center;
-            gap: 0.3125rem;
-            font-size: 0.9rem;
+            gap: 0.5rem;
+            /*flex-grow: 1;*/
+            flex: 1 0 auto;
+            /*white-space: nowrap;*/
         }
+
         .checkbox-container input[type="checkbox"] {
             margin: 0;
         }
-        .checkbox-container label {
-            cursor: pointer;
-        }
+
         button {
+            margin: 0;
+        }
+
+        /* Reduce size of form elements */
+        input, select, button, textarea {
             padding: 0.5rem 0.75rem;
-            cursor: pointer;
             font-size: 0.9rem;
         }
-        .hidden {
-            display: none;
+
+        /* Table adjustments */
+        table {
+            font-size: 0.9rem;
         }
+
+        th, td {
+            padding: 0.5rem 0.75rem;
+        }
+
+        th {
+            font-size: 0.85rem; /* Reduce header size by ~20% */
+        }
+
+        /* Add styles for theme switcher */
+        .theme-switcher {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background-color: var(--card-background-color);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.8s ease;
+        }
+
+        .theme-switcher:hover {
+            transform: rotate(30deg);
+        }
+
+        .theme-switcher svg {
+            width: 1.5rem;
+            height: 1.5rem;
+            fill: none;
+            stroke: var(--color);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+
+        /* Status messages */
+        .status-message {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status-message.loading {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--primary);
+        }
+
+        .status-message.error {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+            color: #ef4444;
+        }
+
+        .info-box.success {
+            background-color: rgba(34, 197, 94, 0.1);
+            border-left: 3px solid #22c55e;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .file-input-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: nowrap;
+            width: 100%;
+        }
+
+        .file-input-row label {
+            white-space: nowrap;
+            flex: 0 0 auto;
+            min-width: 150px;
+        }
+
+        .file-input-row input[type="file"] {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .file-input-info {
+            margin-top: 0.5rem;
+        }
+
+        /* Active row highlighting */
+        .active-row {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        /* Results buttons */
+        .results-buttons {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+            justify-content: flex-start;
+        }
+
+        .results-buttons button {
+            width: auto;
+            padding: 0.5rem 1rem;
+        }
+
+        /* Action buttons */
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-buttons button {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .action-buttons button.active {
+            background-color: var(--secondary);
+            color: white;
+            opacity: 1;
+            font-weight: bold;
+        }
+
+        /* Tooltip container */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        /* Modal styles */
         .modal {
             position: fixed;
             top: 0;
@@ -73,592 +317,478 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             z-index: 1000;
         }
+
         .modal-content {
-            background-color: white;
-            padding: 1.25rem;
-            border-radius: 0.3125rem;
-            width: 80%;
-            max-width: 50rem;
-            max-height: 80vh;
+            background-color: var(--card-background-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 1000px;
+            max-height: 90vh;
             overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
+
+        .modal-content h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+
         .search-filters {
             display: flex;
-            gap: 0.625rem;
-            margin-bottom: 0.9375rem;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
-        .search-filters input, .search-filters select {
+
+        .search-filters input,
+        .search-filters select {
             flex: 1;
-            padding: 0.375rem 0.5rem;
-            font-size: 0.9rem;
+            min-width: 200px;
         }
+
         .search-results {
-            max-height: 25rem;
+            max-height: 60vh;
             overflow-y: auto;
+            margin-bottom: 1rem;
         }
-        .action-buttons {
-            display: flex;
-            gap: 0.3125rem;
-        }
-        .action-buttons button {
-            padding: 0.1875rem 0.5rem;
-            font-size: 0.6875rem;
-        }
-        button.active {
-            background-color: #4CAF50;
-            color: white;
-        }
+
         .search-message {
-            padding: 0.5rem;
-            color: #666;
+            padding: 1rem;
             text-align: center;
-            font-style: italic;
-            font-size: 0.9rem;
-        }
-        .file-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: 0.625rem;
-        }
-        .file-input-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .file-input-row label {
-            margin-right: 10px;
-        }
-        .file-input-row button {
-            padding: 0.375rem 0.625rem;
-        }
-        .status-icon {
-            display: inline-flex;
-            align-items: center;
-            margin-left: 10px;
-        }
-        .status-icon span:first-child {
-            font-size: 1.2rem;
-        }
-        .status-icon .tooltip {
-            visibility: hidden;
-            width: 12.5rem;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            border-radius: 0.375rem;
-            padding: 0.3125rem;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -6.25rem;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 0.8rem;
-        }
-        .status-icon:hover .tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
-        
-        /* Media queries based on viewport width rather than DPI */
-        @media screen and (min-width: 768px) {
-            html {
-                font-size: 16px; /* Base font size for medium screens */
-            }
-        }
-        
-        @media screen and (min-width: 1200px) {
-            html {
-                font-size: 18px; /* Base font size for large screens */
-            }
-        }
-        
-        @media screen and (min-width: 1600px) {
-            html {
-                font-size: 20px; /* Base font size for extra large screens */
-            }
-        }
-        .tooltip-container {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .tooltip-container .tooltip {
-            visibility: hidden;
-            width: 250px;
-            background-color: #555;
-            color: #fff;
-            text-align: left;
-            border-radius: 6px;
-            padding: 8px;
-            position: absolute;
-            z-index: 1001;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -125px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            white-space: pre-line; /* Preserve line breaks */
-            font-size: 0.8rem;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .tooltip-container:hover .tooltip {
-            visibility: visible;
-            opacity: 1;
-        }
-        
-        /* Add a small arrow to the tooltip */
-        .tooltip-container .tooltip::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
-        .file-input-info {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f0f8ff;
-            border-radius: 4px;
-            border-left: 4px solid #4CAF50;
-        }
-        
-        .file-input-info p {
-            margin: 5px 0;
-            font-size: 0.9rem;
-        }
-        
-        /* Loading animation */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .loading-icon {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 3px solid rgba(0,0,0,0.1);
-            border-radius: 50%;
-            border-top: 3px solid #3498db;
-            animation: spin 1s linear infinite;
-        }
-        /* Add hover effect for table rows */
-        tbody tr:hover {
-            background-color: #f5f5f5;
-            cursor: pointer;
+            color: var(--muted-color);
         }
 
-        /* Add active selection highlight */
-        tbody tr.active-row {
-            background-color: #e0f7fa;
-            border-left: 3px solid #00acc1;
-        }
-
-        /* Ensure the active row highlight persists even on hover */
-        tbody tr.active-row:hover {
-            background-color: #b2ebf2;
-        }
     </style>
 </head>
-<body>
-    <div class="container" x-data="app()">
-        <h1>Data Extraction Field Classifier</h1>
-        
-        <div>
+<body x-data="{ ...app(), theme: 'dark' }" x-init="initTheme()" :data-theme="theme">
+<!-- Theme Switcher -->
+<div class="theme-switcher" @click="toggleTheme()">
+    <!-- Sun icon for light mode -->
+    <svg x-show="theme === 'light'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+    <!-- Moon icon for dark mode -->
+    <svg x-show="theme === 'dark'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+</div>
+
+<div class="container">
+    <h1 style="margin-bottom: 24px;">Data Extraction Field Classifier</h1>
+
+    <!-- Steps Grid -->
+    <div class="grid">
+        <!-- Step 1 Card -->
+        <div class="card">
             <h2>Step 1: Load Metadata File</h2>
+            <div class="info-box">
+                Select an Excel (.xlsx) file containing both ADIDO Metadata and TDI GI Pipeline sheets.
+            </div>
             <div class="file-inputs">
                 <div class="file-input-row">
-                    <label>Browse for Excel file:</label>
                     <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadataFile($event)">
-                    <span class="status-icon" x-show="metadataStatus">
-                        <span x-html="metadataStatus.includes('successfully') ? '✅' : (metadataStatus.includes('Loading') ? '⏳' : '❌')"></span>
-                        <span class="tooltip" x-text="metadataStatus"></span>
-                    </span>
                 </div>
-                <div class="file-input-info" x-show="metadataStatus.includes('successfully')">
-                    <p>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</p>
-                    <p>✓ TDI GI Pipeline sheet loaded: <span x-text="pipeMetadataCount"></span> records</p>
+
+                <!-- Loading message -->
+                <div class="status-message loading" x-show="metadataStatus.includes('Loading')">
+                    <div class="spinner"></div>
+                    <span x-text="metadataStatus"></span>
+                </div>
+
+                <!-- Error message -->
+                <div class="status-message error" x-show="metadataStatus.includes('Failed')">
+                    <span x-text="metadataStatus"></span>
+                </div>
+
+                <!-- Success message -->
+                <div class="info-box success" x-show="metadataStatus.includes('successfully')">
+                    <span x-text="metadataStatus"></span>
+                    <br/><span>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</span>
+                    <br/><span>✓ TDI GI Pipeline sheet loaded: <span x-text="pipeMetadataCount"></span> records</span>
                 </div>
             </div>
         </div>
-        
-        <div>
+
+        <!-- Step 2 Card -->
+        <div class="card">
             <h2>Step 2: Enter Field Names</h2>
-            <p>Enter one field name per line:</p>
-            <textarea id="field-names" value="id&#10;name&#10;score" placeholder="id&#10;name&#10;credit_score" x-model="fieldNamesText"></textarea>
+            <!--            <div class="field-names-container">-->
+            <textarea id="field-names" placeholder="Enter one field name per line. These are the fields you want to classify."
+                      x-model="fieldNamesText"></textarea>
+            <!--            </div>-->
             <div class="buttons">
-                <button @click="processFields()">Process Fields</button>
                 <div class="checkbox-container">
                     <input type="checkbox" id="use-pipeline-only" x-model="usePipelineOnly">
                     <label for="use-pipeline-only">Use Pipeline data only</label>
                 </div>
-            </div>
-        </div>
-        
-        <div id="results-section" x-show="showResults">
-            <h2>Results</h2>
-            <table id="results-table">
-                <thead>
-                    <tr>
-                        <th>Source</th>
-                        <th>Source Field</th>
-                        <th>Field Name</th>
-                        <th>Business Description</th>
-                        <th>Classification</th>
-                        <th>PCI</th>
-                        <th>PI</th>
-                        <th>Treatment</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="results-body">
-                    <template x-for="(result, index) in results" :key="index">
-                        <tr :data-field-name="result.fieldName" 
-                            :class="{ 'active-row': activeRowIndex === index }"
-                            @click="setActiveRow(index)">
-                            <td>
-                                <template x-if="result.noMatch">
-                                    <span>-</span>
-                                </template>
-                                <template x-if="!result.noMatch">
-                                    <div class="tooltip-container">
-                                        <span x-text="truncateDescription(result.currentField.source, 50)"></span>
-                                        <span class="tooltip" x-show="result.currentField.source && result.currentField.source.length > 50" x-text="result.currentField.source"></span>
-                                    </div>
-                                </template>
-                            </td>
-                            <td>
-                                <template x-if="result.noMatch">
-                                    <span>-</span>
-                                </template>
-                                <template x-if="!result.noMatch">
-                                    <div class="tooltip-container">
-                                        <span x-text="truncateDescription(result.currentField.name, 50)"></span>
-                                        <span class="tooltip" x-show="result.currentField.name && result.currentField.name.length > 50" x-text="result.currentField.name"></span>
-                                    </div>
-                                </template>
-                            </td>
-                            <td x-text="result.fieldName"></td>
-                            <td>
-                                <template x-if="result.noMatch">
-                                    <span>-</span>
-                                </template>
-                                <template x-if="!result.noMatch">
-                                    <div class="tooltip-container">
-                                        <span x-text="truncateDescription(result.currentField.business_description, 50)"></span>
-                                        <span class="tooltip" x-show="result.currentField.business_description && result.currentField.business_description.length > 50" x-text="result.currentField.business_description"></span>
-                                    </div>
-                                </template>
-                            </td>
-                            <td x-text="result.noMatch ? 'No matching field found' : result.currentField.classification" :colspan="result.noMatch ? 4 : 1"></td>
-                            <td x-text="result.noMatch ? '' : (result.currentField.pci === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
-                            <td x-text="result.noMatch ? '' : (result.currentField.pi === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
-                            <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button @click="setAutoMode(index)" :class="{ 'active': result.mode === 'auto' }">Auto</button>
-                                    <button @click="openSearch(index)" :class="{ 'active': result.mode === 'manual' }">Search</button>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-            <div class="buttons">
-                <button @click="exportResults()">Export Results</button>
-                <button @click="copyAsTable()">Copy as Table</button>
-            </div>
-        </div>
-        
-        <!-- Search Modal -->
-        <div class="modal" x-show="showSearchModal" @click.self="closeSearch()">
-            <div class="modal-content">
-                <h3>Search Fields</h3>
-                <div class="search-filters">
-                    <input type="text" placeholder="Field name (min 2 chars)" x-model="searchFieldName" @input="updateSearchResults()">
-                    <input type="text" placeholder="Source (min 4 chars)" x-model="searchSource" @input="updateSearchResults()">
-                    <select x-model="searchLimit" @change="updateSearchResults()">
-                        <option value="20">Limit: 20</option>
-                        <option value="100">Limit: 100</option>
-                        <option value="1000">Limit: 1000</option>
-                    </select>
-                </div>
-                <div class="search-results">
-                    <template x-if="!canSearch">
-                        <div class="search-message">Enter at least 2 characters in Field name or 4 characters in Source to search</div>
-                    </template>
-                    <template x-if="canSearch && filteredSearchResults.length === 0">
-                        <div class="search-message">No matching fields found</div>
-                    </template>
-                    <template x-if="filteredSearchResults.length > 0">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Source</th>
-                                    <th>Field Name</th>
-                                    <th>Business Description</th>
-                                    <th>Classification</th>
-                                    <th>PCI</th>
-                                    <th>PI</th>
-                                    <th>Treatment</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="(field, index) in filteredSearchResults" :key="index">
-                                    <tr>
-                                        <td>
-                                            <div class="tooltip-container">
-                                                <span x-text="truncateDescription(field.source, 50)"></span>
-                                                <span class="tooltip" x-show="field.source && field.source.length > 50" x-text="field.source"></span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="tooltip-container">
-                                                <span x-text="truncateDescription(field.name, 50)"></span>
-                                                <span class="tooltip" x-show="field.name && field.name.length > 50" x-text="field.name"></span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="tooltip-container">
-                                                <span x-text="truncateDescription(field.business_description, 50)"></span>
-                                                <span class="tooltip" x-show="field.business_description && field.business_description.length > 50" x-text="field.business_description"></span>
-                                            </div>
-                                        </td>
-                                        <td x-text="field.classification"></td>
-                                        <td x-text="field.pci === true ? 'Yes' : 'No'"></td>
-                                        <td x-text="field.pi === true ? 'Yes' : 'No'"></td>
-                                        <td x-text="field.treatment"></td>
-                                        <td>
-                                            <button @click="selectField(field)">Select</button>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </template>
-                </div>
-                <div class="buttons" style="margin-top: 15px;">
-                    <button @click="closeSearch()">Close</button>
-                </div>
+                <button @click="processFields()" class="process-button">Process Fields</button>
             </div>
         </div>
     </div>
 
-    <script>
-        function app() {
-            return {
-                pipeMetadata: [],
-                adidoMetadata: [],
-                fieldNamesText: '',
-                results: [],
-                showResults: false,
-                showSearchModal: false,
-                searchFieldName: '',
-                searchSource: '',
-                searchLimit: '20',
-                currentSearchIndex: null,
-                filteredSearchResults: [],
-                metadataStatus: '',
-                originalResults: [], // Store original auto-detected results
-                adidoMetadataCount: 0,
-                pipeMetadataCount: 0,
-                usePipelineOnly: false, // New property for the checkbox
-                activeRowIndex: null, // New property for active row index
-                
-                get canSearch() {
-                    return this.searchFieldName.length >= 2 || this.searchSource.length >= 3;
-                },
-                
-                init() {
-                    // Initialize the application
-                },
-                
-                loadMetadataFile(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    this.metadataStatus = 'Loading metadata file...';
-                    
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.processExcelFile(e.target.result);
+    <!-- Results Card -->
+    <div class="card" id="results-section" x-show="showResults">
+        <h2>Results</h2>
+        <table id="results-table">
+            <thead>
+            <tr>
+                <th>Source</th>
+                <th>Source Field</th>
+                <th>Field Name</th>
+                <th>Business Description</th>
+                <th>Classification</th>
+                <th>PCI</th>
+                <th>PI</th>
+                <th>Treatment</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="results-body">
+            <template x-for="(result, index) in results" :key="index">
+                <tr :data-field-name="result.fieldName"
+                    :class="{ 'active-row': activeRowIndex === index }"
+                    @click="setActiveRow(index)">
+                    <td>
+                        <template x-if="result.noMatch">
+                            <span>-</span>
+                        </template>
+                        <template x-if="!result.noMatch">
+                            <div class="tooltip-container">
+                                <span x-text="truncateDescription(result.currentField.source, 50)"></span>
+                                <span class="tooltip" x-show="result.currentField.source && result.currentField.source.length > 50"
+                                      x-text="result.currentField.source"></span>
+                            </div>
+                        </template>
+                    </td>
+                    <td>
+                        <template x-if="result.noMatch">
+                            <span>-</span>
+                        </template>
+                        <template x-if="!result.noMatch">
+                            <div class="tooltip-container">
+                                <span x-text="truncateDescription(result.currentField.name, 50)"></span>
+                                <span class="tooltip" x-show="result.currentField.name && result.currentField.name.length > 50"
+                                      x-text="result.currentField.name"></span>
+                            </div>
+                        </template>
+                    </td>
+                    <td x-text="result.fieldName"></td>
+                    <td>
+                        <template x-if="result.noMatch">
+                            <span>-</span>
+                        </template>
+                        <template x-if="!result.noMatch">
+                            <div class="tooltip-container">
+                                <span x-text="truncateDescription(result.currentField.business_description, 50)"></span>
+                                <span class="tooltip" x-show="result.currentField.business_description && result.currentField.business_description.length > 50"
+                                      x-text="result.currentField.business_description"></span>
+                            </div>
+                        </template>
+                    </td>
+                    <td x-text="result.noMatch ? 'No matching field found' : result.currentField.classification" :colspan="result.noMatch ? 4 : 1"></td>
+                    <td x-text="result.noMatch ? '' : (result.currentField.pci === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
+                    <td x-text="result.noMatch ? '' : (result.currentField.pi === true ? 'Yes' : 'No')" x-show="!result.noMatch"></td>
+                    <td x-text="result.noMatch ? '' : result.currentField.treatment" x-show="!result.noMatch"></td>
+                    <td>
+                        <div class="action-buttons">
+                            <button @click="setAutoMode(index)" :class="{ 'active': result.mode === 'auto' }">Auto</button>
+                            <button @click="openSearch(index)" :class="{ 'active': result.mode === 'manual' }">Search</button>
+                        </div>
+                    </td>
+                </tr>
+            </template>
+            </tbody>
+        </table>
+        <div class="results-buttons">
+            <button @click="exportResults()">Export Results</button>
+            <button @click="copyAsTable()">Copy as Table</button>
+        </div>
+    </div>
+
+    <!-- Search Modal -->
+    <div class="modal" x-show="showSearchModal" @click.self="closeSearch()">
+        <div class="modal-content">
+            <h3>Search Fields</h3>
+            <div class="search-filters">
+                <input type="text" placeholder="Field name (min 2 chars)" x-model="searchFieldName" @input="updateSearchResults()">
+                <input type="text" placeholder="Source (min 3 chars)" x-model="searchSource" @input="updateSearchResults()">
+                <select x-model="searchLimit" @change="updateSearchResults()">
+                    <option value="20">Limit: 20</option>
+                    <option value="100">Limit: 100</option>
+                    <option value="1000">Limit: 1000</option>
+                </select>
+            </div>
+            <div class="search-results">
+                <template x-if="!canSearch()">
+                    <div class="search-message">Enter at least 2 characters in Field name or 3 characters in Source to search</div>
+                </template>
+                <template x-if="canSearch() && filteredSearchResults.length === 0">
+                    <div class="search-message">No matching fields found</div>
+                </template>
+                <template x-if="filteredSearchResults.length > 0">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Field Name</th>
+                            <th>Business Description</th>
+                            <th>Classification</th>
+                            <th>PCI</th>
+                            <th>PI</th>
+                            <th>Treatment</th>
+                            <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <template x-for="(field, index) in filteredSearchResults" :key="index">
+                            <tr>
+                                <td>
+                                    <div class="tooltip-container">
+                                        <span x-text="truncateDescription(field.source, 50)"></span>
+                                        <span class="tooltip" x-show="field.source && field.source.length > 50" x-text="field.source"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="tooltip-container">
+                                        <span x-text="truncateDescription(field.name, 50)"></span>
+                                        <span class="tooltip" x-show="field.name && field.name.length > 50" x-text="field.name"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="tooltip-container">
+                                        <span x-text="truncateDescription(field.business_description, 50)"></span>
+                                        <span class="tooltip" x-show="field.business_description && field.business_description.length > 50"
+                                              x-text="field.business_description"></span>
+                                    </div>
+                                </td>
+                                <td x-text="field.classification"></td>
+                                <td x-text="field.pci === true ? 'Yes' : 'No'"></td>
+                                <td x-text="field.pi === true ? 'Yes' : 'No'"></td>
+                                <td x-text="field.treatment"></td>
+                                <td>
+                                    <button @click="selectField(field)">Select</button>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </template>
+            </div>
+            <div class="buttons" style="margin-top: 15px;">
+                <button @click="closeSearch()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function app() {
+        return {
+            pipeMetadata: [],
+            adidoMetadata: [],
+            fieldNamesText: '',
+            results: [],
+            showResults: false,
+            showSearchModal: false,
+            searchFieldName: '',
+            searchSource: '',
+            searchLimit: '20',
+            currentSearchIndex: null,
+            filteredSearchResults: [],
+            metadataStatus: '',
+            originalResults: [], // Store original auto-detected results
+            adidoMetadataCount: 0,
+            pipeMetadataCount: 0,
+            usePipelineOnly: false, // New property for the checkbox
+            activeRowIndex: null, // New property for active row index
+
+            // Theme functions
+            initTheme() {
+                // Check for saved theme preference or use default (dark)
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                this.theme = savedTheme;
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            },
+
+            toggleTheme() {
+                // Toggle between light and dark
+                this.theme = this.theme === 'light' ? 'dark' : 'light';
+
+                // Save theme preference
+                localStorage.setItem('theme', this.theme);
+                document.documentElement.setAttribute('data-theme', this.theme);
+            },
+
+            canSearch() {
+                const fieldNameValid = this.searchFieldName ? this.searchFieldName.length >= 2 : false;
+                const sourceValid = this.searchSource ? this.searchSource.length >= 3 : false;
+                console.log(`canSearch check: fieldName: "${this.searchFieldName}" (${fieldNameValid}), source: "${this.searchSource}" (${sourceValid})`);
+                return fieldNameValid || sourceValid;
+            },
+
+            init() {
+                // Initialize the application
+            },
+
+            loadMetadataFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.metadataStatus = 'Loading metadata file... Please wait.';
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.processExcelFile(e.target.result);
+                };
+                reader.onerror = () => {
+                    this.metadataStatus = 'Failed to read file. Please try again.';
+                };
+                reader.readAsArrayBuffer(file);
+            },
+
+            processExcelFile(buffer) {
+                try {
+                    const data = new Uint8Array(buffer);
+                    const workbook = XLSX.read(data, {type: 'array'});
+
+                    // Check if both required sheets exist
+                    if (!workbook.SheetNames.includes('ADIDO Metadata') || !workbook.SheetNames.includes('TDI GI Pipeline')) {
+                        throw new Error('Excel file must contain both "ADIDO Metadata" and "TDI GI Pipeline" sheets');
+                    }
+
+                    // Process ADIDO Metadata sheet
+                    const adidoWorksheet = workbook.Sheets['ADIDO Metadata'];
+                    const adidoJsonData = XLSX.utils.sheet_to_json(adidoWorksheet);
+                    this.adidoMetadata = this.mapAdidoMetadataToInternalSchema(adidoJsonData);
+                    this.adidoMetadataCount = this.adidoMetadata.length;
+
+                    // Process TDI GI Pipeline sheet
+                    const pipeWorksheet = workbook.Sheets['TDI GI Pipeline'];
+                    const pipeJsonData = XLSX.utils.sheet_to_json(pipeWorksheet);
+                    this.pipeMetadata = this.mapPipeMetadataToInternalSchema(pipeJsonData);
+                    this.pipeMetadataCount = this.pipeMetadata.length;
+
+                    this.metadataStatus = 'Metadata loaded successfully!';
+                } catch (error) {
+                    console.error('Error processing Excel file:', error);
+                    this.metadataStatus = `Failed to process Excel file: ${error.message}`;
+                }
+            },
+
+            // Map pipe metadata Excel data to internal schema
+            mapPipeMetadataToInternalSchema(data) {
+                console.log('Raw pipe metadata data:', data);
+                return data.map(item => {
+                    // Extract table path from the path field
+                    let tablePath = '';
+                    let tableName = 'Unknown Table';
+
+                    if (item.table_path) {
+                        const pathParts = item.table_path.split('/');
+                        if (pathParts.length >= 2) {
+                            tablePath = pathParts.slice(0, -1).join('/');
+                            tableName = pathParts[pathParts.length - 2] || 'Unknown Table';
+                        }
+                    }
+
+                    // Convert PI and PCI to boolean values if they're strings
+                    const pi = typeof item['PI'] === 'string' ?
+                        (item['PI'].toLowerCase() === 'true' || item['PI'] === '1' || item['PI'].toLowerCase() === 'yes') :
+                        Boolean(item['PI']);
+
+                    const pci = typeof item['PCI-DSS'] === 'string' ?
+                        (item['PCI-DSS'].toLowerCase() === 'true' || item['PCI-DSS'] === '1' || item['PCI-DSS'].toLowerCase() === 'yes') :
+                        Boolean(item['PCI-DSS']);
+
+                    return {
+                        object_type: item['Object Type'] || '',
+                        field_name: item['Name'] || '',
+                        business_description: item['Business Description'] || '',
+                        classification: item['Security Classification'] || '',
+                        pi: pi,
+                        pci: pci,
+                        treatment: item['Data Treatment'] || '',
+                        path: item.path || '',
+                        table_path: tablePath,
+                        table_name: tableName
                     };
-                    reader.readAsArrayBuffer(file);
-                },
-                
-                processExcelFile(buffer) {
-                    try {
-                        const data = new Uint8Array(buffer);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        
-                        // Check if both required sheets exist
-                        if (!workbook.SheetNames.includes('ADIDO Metadata') || !workbook.SheetNames.includes('TDI GI Pipeline')) {
-                            throw new Error('Excel file must contain both "ADIDO Metadata" and "TDI GI Pipeline" sheets');
-                        }
-                        
-                        // Process ADIDO Metadata sheet
-                        const adidoWorksheet = workbook.Sheets['ADIDO Metadata'];
-                        const adidoJsonData = XLSX.utils.sheet_to_json(adidoWorksheet);
-                        this.adidoMetadata = this.mapAdidoMetadataToInternalSchema(adidoJsonData);
-                        this.adidoMetadataCount = this.adidoMetadata.length;
-                        
-                        // Process TDI GI Pipeline sheet
-                        const pipeWorksheet = workbook.Sheets['TDI GI Pipeline'];
-                        const pipeJsonData = XLSX.utils.sheet_to_json(pipeWorksheet);
-                        this.pipeMetadata = this.mapPipeMetadataToInternalSchema(pipeJsonData);
-                        this.pipeMetadataCount = this.pipeMetadata.length;
-                        
-                        this.metadataStatus = 'Metadata loaded successfully!';
-                    } catch (error) {
-                        console.error('Error processing Excel file:', error);
-                        this.metadataStatus = `Failed to process Excel file: ${error.message}`;
-                    }
-                },
-                
-                // Map pipe metadata Excel data to internal schema
-                mapPipeMetadataToInternalSchema(data) {
-                    console.log('Raw pipe metadata data:', data);
-                    return data.map(item => {
-                        // Extract table path from the path field
-                        let tablePath = '';
-                        let tableName = 'Unknown Table';
-                        
-                        if (item.table_path) {
-                            const pathParts = item.table_path.split('/');
-                            if (pathParts.length >= 2) {
-                                tablePath = pathParts.slice(0, -1).join('/');
-                                tableName = pathParts[pathParts.length - 2] || 'Unknown Table';
-                            }
-                        }
-                        
-                        // Convert PI and PCI to boolean values if they're strings
-                        const pi = typeof item['PI'] === 'string' ? 
-                            (item['PI'].toLowerCase() === 'true' || item['PI'] === '1' || item['PI'].toLowerCase() === 'yes') : 
-                            Boolean(item['PI']);
-                            
-                        const pci = typeof item['PCI-DSS'] === 'string' ? 
-                            (item['PCI-DSS'].toLowerCase() === 'true' || item['PCI-DSS'] === '1' || item['PCI-DSS'].toLowerCase() === 'yes') : 
-                            Boolean(item['PCI-DSS']);
-                        
-                        return {
-                            object_type: item['Object Type'] || '',
-                            field_name: item['Name'] || '',
-                            business_description: item['Business Description'] || '',
-                            classification: item['Security Classification'] || '',
-                            pi: pi,
-                            pci: pci,
-                            treatment: item['Data Treatment'] || '',
-                            path: item.path || '',
-                            table_path: tablePath,
-                            table_name: tableName
-                        };
-                    });
-                },
-                
-                // Map ADIDO metadata Excel data to internal schema
-                mapAdidoMetadataToInternalSchema(data) {
-                    console.log('Raw ADIDO metadata data:', data);
-                    return data.map(item => {
-                        // Convert PI and PCI to boolean values if they're strings
-                        const pi = typeof item['PI'] === 'string' ? 
-                            (item['PI'].toLowerCase() === 'true' || item['PI'] === '1' || item['PI'].toLowerCase() === 'yes') : 
-                            Boolean(item['PI']);
-                            
-                        const pci = typeof item['PCI'] === 'string' ? 
-                            (item['PCI'].toLowerCase() === 'true' || item['PCI'] === '1' || item['PCI'].toLowerCase() === 'yes') : 
-                            Boolean(item['PCI']);
-                        
-                        return {
-                            report_file: item['File Name'] || '',
-                            field_name: item['Field Name'] || '',
-                            business_description: item['Business Description'] || '',
-                            classification: item['Classification'] || '',
-                            pi: pi,
-                            pci: pci,
-                            treatment: item['Data Treatment'] || '',
-                        };
-                    });
-                },
-                
-                processFields() {
-                    if (this.pipeMetadata.length === 0 && (!this.usePipelineOnly && this.adidoMetadata.length === 0)) {
-                        alert('Please load the metadata file first!');
-                        return;
-                    }
-                    
-                    const fieldNames = this.fieldNamesText.split('\n').filter(name => name.trim() !== '');
-                    
-                    if (fieldNames.length === 0) {
-                        alert('Please enter at least one field name!');
-                        return;
-                    }
-                    
-                    this.results = fieldNames.map(fieldName => {
-                        // First check in ADIDO metadata (higher priority) if not using pipeline only
-                        if (!this.usePipelineOnly) {
-                            const adidoMatches = this.adidoMetadata.filter(item => 
-                                item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
-                            );
-                            
-                            if (adidoMatches.length > 0) {
-                                // Add source information
-                                const enhancedMatches = adidoMatches.map(match => {
-                                    return {
-                                        source: match.report_file || 'Unknown Report',
-                                        name: match.field_name,
-                                        business_description: match.business_description || '',
-                                        classification: match.classification || '',
-                                        pi: match.pi,
-                                        pci: match.pci,
-                                        treatment: match.treatment || '',
-                                        table_path: '',
-                                        from_source: 'adido'
-                                    };
-                                });
-                                
-                                return {
-                                    fieldName,
-                                    noMatch: false,
-                                    matchingFields: enhancedMatches,
-                                    currentField: enhancedMatches[0],
-                                    mode: 'auto'
-                                };
-                            }
-                        }
-                        
-                        // Then check in pipe metadata
-                        const pipeMatches = this.pipeMetadata.filter(item => 
-                            item.object_type === 'field' && item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
+                });
+            },
+
+            // Map ADIDO metadata Excel data to internal schema
+            mapAdidoMetadataToInternalSchema(data) {
+                console.log('Raw ADIDO metadata data:', data);
+                return data.map(item => {
+                    // Convert PI and PCI to boolean values if they're strings
+                    const pi = typeof item['PI'] === 'string' ?
+                        (item['PI'].toLowerCase() === 'true' || item['PI'] === '1' || item['PI'].toLowerCase() === 'yes') :
+                        Boolean(item['PI']);
+
+                    const pci = typeof item['PCI'] === 'string' ?
+                        (item['PCI'].toLowerCase() === 'true' || item['PCI'] === '1' || item['PCI'].toLowerCase() === 'yes') :
+                        Boolean(item['PCI']);
+
+                    return {
+                        report_file: item['File Name'] || '',
+                        field_name: item['Field Name'] || '',
+                        business_description: item['Business Description'] || '',
+                        classification: item['Classification'] || '',
+                        pi: pi,
+                        pci: pci,
+                        treatment: item['Data Treatment'] || '',
+                    };
+                });
+            },
+
+            processFields() {
+                if (this.pipeMetadata.length === 0 && (!this.usePipelineOnly && this.adidoMetadata.length === 0)) {
+                    alert('Please load the metadata file first!');
+                    return;
+                }
+
+                const fieldNames = this.fieldNamesText.split('\n').filter(name => name.trim() !== '');
+
+                if (fieldNames.length === 0) {
+                    alert('Please enter at least one field name!');
+                    return;
+                }
+
+                this.results = fieldNames.map(fieldName => {
+                    // First check in ADIDO metadata (higher priority) if not using pipeline only
+                    if (!this.usePipelineOnly) {
+                        const adidoMatches = this.adidoMetadata.filter(item =>
+                            item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
                         );
-                        
-                        if (pipeMatches.length > 0) {
+
+                        if (adidoMatches.length > 0) {
                             // Add source information
-                            const enhancedMatches = pipeMatches.map(match => {
+                            const enhancedMatches = adidoMatches.map(match => {
                                 return {
-                                    source: match.table_name || 'Unknown Table',
+                                    source: match.report_file || 'Unknown Report',
                                     name: match.field_name,
                                     business_description: match.business_description || '',
                                     classification: match.classification || '',
                                     pi: match.pi,
                                     pci: match.pci,
                                     treatment: match.treatment || '',
-                                    table_path: match.table_path || '',
-                                    from_source: 'pipe'
+                                    table_path: '',
+                                    from_source: 'adido'
                                 };
                             });
-                            
+
                             return {
                                 fieldName,
                                 noMatch: false,
@@ -667,50 +797,86 @@
                                 mode: 'auto'
                             };
                         }
-                        
-                        // No match found
+                    }
+
+                    // Then check in pipe metadata
+                    const pipeMatches = this.pipeMetadata.filter(item =>
+                        item.object_type === 'field' && item.field_name.toLowerCase() === fieldName.trim().toLowerCase()
+                    );
+
+                    if (pipeMatches.length > 0) {
+                        // Add source information
+                        const enhancedMatches = pipeMatches.map(match => {
+                            return {
+                                source: match.table_name || 'Unknown Table',
+                                name: match.field_name,
+                                business_description: match.business_description || '',
+                                classification: match.classification || '',
+                                pi: match.pi,
+                                pci: match.pci,
+                                treatment: match.treatment || '',
+                                table_path: match.table_path || '',
+                                from_source: 'pipe'
+                            };
+                        });
+
                         return {
                             fieldName,
-                            noMatch: true,
+                            noMatch: false,
+                            matchingFields: enhancedMatches,
+                            currentField: enhancedMatches[0],
                             mode: 'auto'
                         };
-                    });
-                    
-                    // Store a deep copy of the original results for Auto mode
-                    this.originalResults = JSON.parse(JSON.stringify(this.results));
-                    
-                    this.showResults = true;
-                },
-                
-                updateSearchResults() {
-                    if (!this.canSearch) {
-                        this.filteredSearchResults = [];
-                        return;
                     }
-                    
-                    // Combine data sources based on usePipelineOnly setting
-                    let allFields = [];
-                    
-                    // Add ADIDO metadata if not using pipeline only
-                    if (!this.usePipelineOnly) {
-                        allFields = [
-                            ...this.adidoMetadata.map(item => {
-                                return {
-                                    source: item.report_file || 'Unknown Report',
-                                    name: item.field_name,
-                                    business_description: item.business_description || '',
-                                    classification: item.classification || '',
-                                    pi: item.pi,
-                                    pci: item.pci,
-                                    treatment: item.treatment || '',
-                                    table_path: '',
-                                    from_source: 'adido'
-                                };
-                            })
-                        ];
-                    }
-                    
-                    // Always add pipeline metadata
+
+                    // No match found
+                    return {
+                        fieldName,
+                        noMatch: true,
+                        mode: 'auto'
+                    };
+                });
+
+                // Store a deep copy of the original results for Auto mode
+                this.originalResults = JSON.parse(JSON.stringify(this.results));
+
+                this.showResults = true;
+            },
+
+            updateSearchResults() {
+                console.log(`Updating search results (searchFieldName: "${this.searchFieldName}", searchSource: "${this.searchSource}")...`);
+                const canSearchNow = this.canSearch()
+
+                if (!canSearchNow) {
+                    console.log('Cannot search with less than 2 characters in Field name or 3 characters in Source');
+                    this.filteredSearchResults = [];
+                    return;
+                }
+
+                // Combine data sources based on usePipelineOnly setting
+                let allFields = [];
+
+                // Add ADIDO metadata if not using pipeline only
+                if (!this.usePipelineOnly && this.adidoMetadata && this.adidoMetadata.length > 0) {
+                    allFields = [
+                        ...this.adidoMetadata.map(item => {
+                            return {
+                                source: item.report_file || 'Unknown Report',
+                                name: item.field_name,
+                                business_description: item.business_description || '',
+                                classification: item.classification || '',
+                                pi: item.pi,
+                                pci: item.pci,
+                                treatment: item.treatment || '',
+                                table_path: '',
+                                from_source: 'adido'
+                            };
+                        })
+                    ];
+                }
+
+                // Add pipe metadata
+                if (this.pipeMetadata && this.pipeMetadata.length > 0) {
                     allFields = [
                         ...allFields,
                         ...this.pipeMetadata.filter(item => item.object_type === 'field').map(item => {
@@ -727,165 +893,179 @@
                             };
                         })
                     ];
-                    
-                    // Apply filters
-                    this.filteredSearchResults = allFields.filter(field => {
-                        const nameMatch = this.searchFieldName.length < 2 || 
-                            field.name.toLowerCase().includes(this.searchFieldName.toLowerCase());
-                        const sourceMatch = this.searchSource.length < 4 || 
-                            field.source.toLowerCase().includes(this.searchSource.toLowerCase());
-                        return nameMatch && sourceMatch;
-                    }).slice(0, parseInt(this.searchLimit)); // Apply limit
-                },
-                
-                setAutoMode(index) {
-                    // Set this row as active
-                    this.activeRowIndex = index;
-                    
-                    // Restore the original auto-detected result
-                    if (this.originalResults[index]) {
-                        this.results[index] = JSON.parse(JSON.stringify(this.originalResults[index]));
-                        this.results[index].mode = 'auto';
-                    }
-                },
-                
-                openSearch(index) {
-                    // Set this row as active
-                    this.activeRowIndex = index;
-                    
-                    this.currentSearchIndex = index;
-                    this.searchFieldName = this.results[index].fieldName;
-                    this.searchSource = '';
-                    this.searchLimit = '20';
-                    this.showSearchModal = true;
-                    this.updateSearchResults();
-                },
-                
-                closeSearch() {
-                    this.showSearchModal = false;
-                    this.currentSearchIndex = null;
-                    this.searchFieldName = '';
-                    this.searchSource = '';
-                    this.filteredSearchResults = [];
-                },
-                
-                selectField(field) {
-                    if (this.currentSearchIndex !== null) {
-                        this.results[this.currentSearchIndex].noMatch = false;
-                        this.results[this.currentSearchIndex].currentField = field;
-                        this.results[this.currentSearchIndex].mode = 'manual';
-                        this.closeSearch();
-                        
-                        // Maintain active row selection after closing search
-                        this.activeRowIndex = this.currentSearchIndex;
-                    }
-                },
-                
-                exportResults() {
-                    if (this.results.length === 0) {
-                        alert('No results to export!');
-                        return;
-                    }
-                    
-                    // Create a CSV with the same columns as the "Copy as Table" function
-                    let csvContent = 'Field Name,Business Description,Classification,PCI,PI,Treatment\n';
-                    
-                    // Add each row
-                    this.results.forEach(result => {
-                        if (result.noMatch) {
-                            // Escape field name in case it contains commas
-                            const escapedFieldName = result.fieldName.includes(',') ? 
-                                `"${result.fieldName.replace(/"/g, '""')}"` : result.fieldName;
-                            
-                            csvContent += `${escapedFieldName},,No matching field found,,,\n`;
-                        } else {
-                            // Escape fields that might contain commas
-                            const escapedFieldName = result.fieldName.includes(',') ? 
-                                `"${result.fieldName.replace(/"/g, '""')}"` : result.fieldName;
-                            
-                            const escapedDescription = result.currentField.business_description ? 
-                                `"${result.currentField.business_description.replace(/"/g, '""')}"` : '';
-                            
-                            const escapedClassification = result.currentField.classification ? 
-                                `"${result.currentField.classification.replace(/"/g, '""')}"` : '';
-                            
-                            const escapedTreatment = result.currentField.treatment ? 
-                                `"${result.currentField.treatment.replace(/"/g, '""')}"` : '';
-                            
-                            csvContent += `${escapedFieldName},${escapedDescription},${escapedClassification},${result.currentField.pci === true ? 'Yes' : 'No'},${result.currentField.pi === true ? 'Yes' : 'No'},${escapedTreatment}\n`;
-                        }
-                    });
-                    
-                    this.downloadCSV(csvContent, 'classified_fields.csv');
-                },
-                
-                copyAsTable() {
-                    if (this.results.length === 0) {
-                        alert('No results to copy!');
-                        return;
-                    }
-                    
-                    // Create a table with the specified columns
-                    let tableContent = '' //do not export column names: 'Field Name\tBusiness Description\tClassification\tPCI\tPI\tTreatment\n';
-                    
-                    // Add each row
-                    this.results.forEach(result => {
-                        if (result.noMatch) {
-                            tableContent += `${result.fieldName}\t\tNo matching field found\t\t\t\n`;
-                        } else {
-                            tableContent += `${result.fieldName}\t${result.currentField.business_description || ''}\t${result.currentField.classification || ''}\t${result.currentField.pci === true ? 'Yes' : 'No'}\t${result.currentField.pi === true ? 'Yes' : 'No'}\t${result.currentField.treatment || ''}\n`;
-                        }
-                    });
-                    
-                    // Copy to clipboard
-                    this.copyToClipboard(tableContent);
-                    alert('Table copied to clipboard!');
-                },
-                
-                copyToClipboard(text) {
-                    // Create a temporary textarea element
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    document.body.appendChild(textarea);
-                    
-                    // Select and copy the text
-                    textarea.select();
-                    document.execCommand('copy');
-                    
-                    // Remove the temporary element
-                    document.body.removeChild(textarea);
-                },
-                
-                downloadCSV(content, filename) {
-                    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    
-                    const link = document.createElement('a');
-                    link.setAttribute('href', url);
-                    link.setAttribute('download', filename);
-                    link.style.visibility = 'hidden';
-                    
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                },
-                
-                // Helper function to truncate text and preserve line breaks for display
-                truncateDescription(text, maxLength = 50) {
-                    if (!text) return '';
-                    
-                    // Replace line breaks with a visible character for display
-                    const displayText = text.length > maxLength ? 
-                        text.substring(0, maxLength) + '...' : 
-                        text;
-                        
-                    return displayText;
-                },
-                setActiveRow(index) {
-                    this.activeRowIndex = index;
                 }
-            };
-        }
-    </script>
+
+                // Apply filters
+                const fieldNameFilter = this.searchFieldName ? this.searchFieldName.toLowerCase() : '';
+                const sourceFilter = this.searchSource ? this.searchSource.toLowerCase() : '';
+
+                this.filteredSearchResults = allFields.filter(field => {
+                    const nameMatch = !fieldNameFilter || (field.name && field.name.toLowerCase().includes(fieldNameFilter));
+                    const sourceMatch = !sourceFilter || (field.source && field.source.toLowerCase().includes(sourceFilter));
+
+                    // If we have both filters, require both to match
+                    if (fieldNameFilter && sourceFilter) {
+                        return nameMatch && sourceMatch;
+                    }
+                    // Otherwise, match if the provided filter matches
+                    return (fieldNameFilter && nameMatch) || (sourceFilter && sourceMatch);
+                }).slice(0, parseInt(this.searchLimit)); // Apply limit
+
+                console.log('Search results:', this.filteredSearchResults.length, 'matches found');
+            },
+
+            setAutoMode(index) {
+                // Set this row as active
+                this.activeRowIndex = index;
+
+                // Restore the original auto-detected result
+                if (this.originalResults[index]) {
+                    this.results[index] = JSON.parse(JSON.stringify(this.originalResults[index]));
+                    this.results[index].mode = 'auto';
+                }
+            },
+
+            openSearch(index) {
+                // Set this row as active
+                this.activeRowIndex = index;
+
+                this.currentSearchIndex = index;
+                this.searchFieldName = this.results[index].fieldName;
+                this.searchSource = '';
+                this.searchLimit = '20';
+                this.showSearchModal = true;
+
+                // Force update search results
+                this.$nextTick(() => {
+                    this.updateSearchResults();
+                });
+            },
+
+            closeSearch() {
+                this.showSearchModal = false;
+                this.currentSearchIndex = null;
+                this.searchFieldName = '';
+                this.searchSource = '';
+                this.filteredSearchResults = [];
+            },
+
+            selectField(field) {
+                if (this.currentSearchIndex !== null) {
+                    this.results[this.currentSearchIndex].noMatch = false;
+                    this.results[this.currentSearchIndex].currentField = field;
+                    this.results[this.currentSearchIndex].mode = 'manual';
+                    this.closeSearch();
+
+                    // Maintain active row selection after closing search
+                    this.activeRowIndex = this.currentSearchIndex;
+                }
+            },
+
+            exportResults() {
+                if (this.results.length === 0) {
+                    alert('No results to export!');
+                    return;
+                }
+
+                // Create a CSV with the same columns as the "Copy as Table" function
+                let csvContent = 'Field Name,Business Description,Classification,PCI,PI,Treatment\n';
+
+                // Add each row
+                this.results.forEach(result => {
+                    if (result.noMatch) {
+                        // Escape field name in case it contains commas
+                        const escapedFieldName = result.fieldName.includes(',') ?
+                            `"${result.fieldName.replace(/"/g, '""')}"` : result.fieldName;
+
+                        csvContent += `${escapedFieldName},,No matching field found,,,\n`;
+                    } else {
+                        // Escape fields that might contain commas
+                        const escapedFieldName = result.fieldName.includes(',') ?
+                            `"${result.fieldName.replace(/"/g, '""')}"` : result.fieldName;
+
+                        const escapedDescription = result.currentField.business_description ?
+                            `"${result.currentField.business_description.replace(/"/g, '""')}"` : '';
+
+                        const escapedClassification = result.currentField.classification ?
+                            `"${result.currentField.classification.replace(/"/g, '""')}"` : '';
+
+                        const escapedTreatment = result.currentField.treatment ?
+                            `"${result.currentField.treatment.replace(/"/g, '""')}"` : '';
+
+                        csvContent += `${escapedFieldName},${escapedDescription},${escapedClassification},${result.currentField.pci === true ? 'Yes' : 'No'},${result.currentField.pi === true ? 'Yes' : 'No'},${escapedTreatment}\n`;
+                    }
+                });
+
+                this.downloadCSV(csvContent, 'classified_fields.csv');
+            },
+
+            copyAsTable() {
+                if (this.results.length === 0) {
+                    alert('No results to copy!');
+                    return;
+                }
+
+                // Create a table with the specified columns
+                let tableContent = '' //do not export column names: 'Field Name\tBusiness Description\tClassification\tPCI\tPI\tTreatment\n';
+
+                // Add each row
+                this.results.forEach(result => {
+                    if (result.noMatch) {
+                        tableContent += `${result.fieldName}\t\tNo matching field found\t\t\t\n`;
+                    } else {
+                        tableContent += `${result.fieldName}\t${result.currentField.business_description || ''}\t${result.currentField.classification || ''}\t${result.currentField.pci === true ? 'Yes' : 'No'}\t${result.currentField.pi === true ? 'Yes' : 'No'}\t${result.currentField.treatment || ''}\n`;
+                    }
+                });
+
+                // Copy to clipboard
+                this.copyToClipboard(tableContent);
+                alert('Table copied to clipboard!');
+            },
+
+            copyToClipboard(text) {
+                // Create a temporary textarea element
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+
+                // Select and copy the text
+                textarea.select();
+                document.execCommand('copy');
+
+                // Remove the temporary element
+                document.body.removeChild(textarea);
+            },
+
+            downloadCSV(content, filename) {
+                const blob = new Blob([content], {type: 'text/csv;charset=utf-8;'});
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+
+            // Helper function to truncate text and preserve line breaks for display
+            truncateDescription(text, maxLength = 50) {
+                if (!text) return '';
+
+                // Replace line breaks with a visible character for display
+                const displayText = text.length > maxLength ?
+                    text.substring(0, maxLength) + '...' :
+                    text;
+
+                return displayText;
+            },
+            setActiveRow(index) {
+                this.activeRowIndex = index;
+            }
+        };
+    }
+</script>
 </body>
 </html>
