@@ -270,6 +270,24 @@
         .export-button:hover {
             background-color: var(--primary-hover);
         }
+
+        /* Table column width adjustments */
+        .adhoc-file-list table th:first-child,
+        .adhoc-file-list table td:first-child {
+            width: 1%; /* Minimal width for Selection column */
+            white-space: nowrap;
+        }
+        
+        .adhoc-file-list table th:nth-child(2),
+        .adhoc-file-list table td:nth-child(2) {
+            width: 15%; /* Small width for Source column */
+            white-space: nowrap;
+        }
+        
+        .adhoc-file-list table th:nth-child(3),
+        .adhoc-file-list table td:nth-child(3) {
+            width: auto; /* File Name takes remaining space */
+        }
     </style>
 </head>
 <body x-data="{ ...app(), theme: 'dark' }" x-init="initTheme()" :data-theme="theme">
@@ -364,40 +382,80 @@
         <!-- Step 3 Card -->
         <div class="card full-width-card">
             <h2>Step 3</h2>
-            <div class="info-box">
-                Select files to generate ADIDO template
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+                <!-- Left Column -->
+                <div>
+                    <!-- Top Row with Info Box and Filter -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div class="info-box" style="margin-bottom: 0; flex: 1;">
+                            Select files to generate ADIDO template
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: 1rem;">
+                            <label for="file-filter">Filter file name:</label>
+                            <input type="text" id="file-filter" placeholder="Min 2 characters" x-model="fileFilter" @input="filterAdhocFiles()">
+                        </div>
+                    </div>
+                    
+                    <!-- Selection Table -->
+                    <div class="adhoc-file-list">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 1%;"></th>
+                                    <th style="width: 15%;">Source</th>
+                                    <th>File Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(item, index) in filteredAdhocData" :key="index">
+                                    <tr @click="toggleFileSelection(item.file_name)" :class="{ 'selected-row': isFileSelected(item.file_name) }">
+                                        <td style="width: 1%;">
+                                            <input type="checkbox" :checked="isFileSelected(item.file_name)" @click.stop="toggleFileSelection(item.file_name)">
+                                        </td>
+                                        <td style="width: 15%;" x-text="item.data_source === 'data_in' ? 'Data In' : 'Data Out'"></td>
+                                        <td x-text="item.file_name"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Right Column -->
+                <div>
+                    <!-- Info Box with Selected Count -->
+                    <div class="info-box" style="margin-bottom: 1rem;">
+                        Selected Files: <span x-text="selectedAdhocFiles.length"></span>
+                    </div>
+                    
+                    <!-- Selected Files Table -->
+                    <div class="adhoc-file-list">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(fileName, index) in selectedAdhocFiles" :key="index">
+                                    <tr @click="toggleFileSelection(fileName)">
+                                        <td x-text="fileName"></td>
+                                    </tr>
+                                </template>
+                                <tr x-show="selectedAdhocFiles.length === 0">
+                                    <td style="text-align: center; color: var(--muted-color);">No files selected</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             
-            <!-- Table with file selection -->
-            <div class="adhoc-file-list">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Selection</th>
-                            <th>Source</th>
-                            <th>File Name</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template x-for="(item, index) in adhocData" :key="index">
-                            <tr @click="toggleFileSelection(item.file_name)" :class="{ 'selected-row': isFileSelected(item.file_name) }">
-                                <td>
-                                    <input type="checkbox" :checked="isFileSelected(item.file_name)" @click.stop>
-                                </td>
-                                <td x-text="item.data_source === 'data_in' ? 'Data In' : 'Data Out'"></td>
-                                <td x-text="item.file_name"></td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Buttons -->
-            <div class="buttons" style="margin-top: 1rem;">
-                <button @click="generateADIDOTemplate()" class="export-button" :disabled="adhocDataCount === 0 || selectedAdhocFiles.length === 0">
+            <!-- Submit Button Row -->
+            <div style="display: flex; justify-content: center; margin-top: 1.5rem;">
+                <button @click="generateADIDOTemplate()" class="export-button" :disabled="adhocDataCount === 0 || selectedAdhocFiles.length === 0" style="width: auto;">
                     Generate ADIDO template
                 </button>
-                <button @click="closeWindow()">Close Window</button>
             </div>
         </div>
     </div>
@@ -408,12 +466,14 @@
         return {
             adidoMetadata: [],
             adhocData: [],
+            filteredAdhocData: [],
             metadataStatus: '',
             templateStatus: '',
             adidoMetadataCount: 0,
             adhocDataCount: 0,
             selectedAdhocFiles: [],
             templateData: null,
+            fileFilter: '',
             
             // Adhoc data column mapping
             adhocDataMapping: {
@@ -547,6 +607,7 @@
                             }
                             
                             this.adhocDataCount = this.adhocData.length;
+                            this.filteredAdhocData = [...this.adhocData]; // Initialize filtered data
                             this.metadataStatus = 'Metadata loaded successfully!';
                         })
                         .catch(error => {
@@ -801,6 +862,19 @@
                 }
                 
                 return data;
+            },
+            // Filter adhoc files based on file name
+            filterAdhocFiles() {
+                if (this.fileFilter.length < 2) {
+                    // If filter is less than 2 chars, show all files
+                    this.filteredAdhocData = [...this.adhocData];
+                    return;
+                }
+                
+                const filterText = this.fileFilter.toLowerCase();
+                this.filteredAdhocData = this.adhocData.filter(item => 
+                    item.file_name.toLowerCase().includes(filterText)
+                );
             },
         };
     }
