@@ -6,9 +6,7 @@
     <title>Data Extraction Field Classifier</title>
     <!-- Alpine.js for state management -->
     <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
-    <!-- SheetJS for Excel file handling -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
-    <!-- XLSX-Populate for preserving Excel formatting -->
+    <!-- XLSX-Populate for Excel file handling -->
     <script src="https://unpkg.com/xlsx-populate@1.21.0/browser/xlsx-populate.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.5.10/css/pico.min.css">
     <style>
@@ -444,39 +442,44 @@
 
             processExcelFile(buffer) {
                 try {
-                    const data = new Uint8Array(buffer);
-                    const workbook = XLSX.read(data, {type: 'array'});
+                    // Use XLSX-Populate to read the Excel file
+                    XlsxPopulate.fromDataAsync(buffer)
+                        .then(workbook => {
+                            // Check if ADIDO Metadata sheet exists
+                            if (!workbook.sheet('ADIDO Metadata')) {
+                                throw new Error('Excel file must contain "ADIDO Metadata" sheet');
+                            }
 
-                    // Check if ADIDO Metadata sheet exists
-                    if (!workbook.SheetNames.includes('ADIDO Metadata')) {
-                        throw new Error('Excel file must contain "ADIDO Metadata" sheet');
-                    }
+                            // Process ADIDO Metadata sheet
+                            const adidoSheet = workbook.sheet('ADIDO Metadata');
+                            const adidoJsonData = this.sheetToJson(adidoSheet);
+                            this.adidoMetadata = this.mapAdidoMetadataToInternalSchema(adidoJsonData);
+                            this.adidoMetadataCount = this.adidoMetadata.length;
 
-                    // Process ADIDO Metadata sheet
-                    const adidoWorksheet = workbook.Sheets['ADIDO Metadata'];
-                    const adidoJsonData = XLSX.utils.sheet_to_json(adidoWorksheet);
-                    this.adidoMetadata = this.mapAdidoMetadataToInternalSchema(adidoJsonData);
-                    this.adidoMetadataCount = this.adidoMetadata.length;
-
-                    // Process Adhoc Data-In sheet if it exists
-                    this.adhocData = [];
-                    if (workbook.SheetNames.includes('Adhoc Data-In')) {
-                        const adhocInWorksheet = workbook.Sheets['Adhoc Data-In'];
-                        const adhocInJsonData = XLSX.utils.sheet_to_json(adhocInWorksheet);
-                        const mappedInData = this.mapAdhocDataToInternalSchema(adhocInJsonData, 'data_in');
-                        this.adhocData = [...this.adhocData, ...mappedInData];
-                    }
-                    
-                    // Process Adhoc Data-Out sheet if it exists
-                    if (workbook.SheetNames.includes('Adhoc Data-Out')) {
-                        const adhocOutWorksheet = workbook.Sheets['Adhoc Data-Out'];
-                        const adhocOutJsonData = XLSX.utils.sheet_to_json(adhocOutWorksheet);
-                        const mappedOutData = this.mapAdhocDataToInternalSchema(adhocOutJsonData, 'data_out');
-                        this.adhocData = [...this.adhocData, ...mappedOutData];
-                    }
-                    
-                    this.adhocDataCount = this.adhocData.length;
-                    this.metadataStatus = 'Metadata loaded successfully!';
+                            // Process Adhoc Data-In sheet if it exists
+                            this.adhocData = [];
+                            if (workbook.sheet('Adhoc Data-In')) {
+                                const adhocInSheet = workbook.sheet('Adhoc Data-In');
+                                const adhocInJsonData = this.sheetToJson(adhocInSheet);
+                                const mappedInData = this.mapAdhocDataToInternalSchema(adhocInJsonData, 'data_in');
+                                this.adhocData = [...this.adhocData, ...mappedInData];
+                            }
+                            
+                            // Process Adhoc Data-Out sheet if it exists
+                            if (workbook.sheet('Adhoc Data-Out')) {
+                                const adhocOutSheet = workbook.sheet('Adhoc Data-Out');
+                                const adhocOutJsonData = this.sheetToJson(adhocOutSheet);
+                                const mappedOutData = this.mapAdhocDataToInternalSchema(adhocOutJsonData, 'data_out');
+                                this.adhocData = [...this.adhocData, ...mappedOutData];
+                            }
+                            
+                            this.adhocDataCount = this.adhocData.length;
+                            this.metadataStatus = 'Metadata loaded successfully!';
+                        })
+                        .catch(error => {
+                            console.error('Error processing Excel file:', error);
+                            this.metadataStatus = `Failed to process Excel file: ${error.message}`;
+                        });
                 } catch (error) {
                     console.error('Error processing Excel file:', error);
                     this.metadataStatus = `Failed to process Excel file: ${error.message}`;
@@ -676,6 +679,55 @@
                 setTimeout(() => {
                     URL.revokeObjectURL(url);
                 }, 100);
+            },
+            
+            // Helper function to convert XLSX-Populate sheet to JSON
+            sheetToJson(sheet) {
+                const data = [];
+                const range = sheet.usedRange();
+                
+                if (!range) return data;
+                
+                // Get the range boundaries
+                const startCell = range.startCell();
+                const endCell = range.endCell();
+                const startRow = startCell.rowNumber();
+                const endRow = endCell.rowNumber();
+                const startCol = startCell.columnNumber();
+                const endCol = endCell.columnNumber();
+                
+                // Get headers from the first row
+                const headers = [];
+                for (let col = startCol; col <= endCol; col++) {
+                    const headerCell = sheet.cell(1, col);
+                    headers.push(headerCell.value() || '');
+                }
+                
+                // Extract data rows (starting from row 2)
+                for (let row = 2; row <= endRow; row++) {
+                    const rowData = {};
+                    let hasData = false;
+                    
+                    for (let col = startCol; col <= endCol; col++) {
+                        const colIndex = col - startCol;
+                        if (headers[colIndex]) {
+                            const cellValue = sheet.cell(row, col).value();
+                            if (cellValue !== undefined && cellValue !== null) {
+                                rowData[headers[colIndex]] = cellValue;
+                                hasData = true;
+                            } else {
+                                rowData[headers[colIndex]] = '';
+                            }
+                        }
+                    }
+                    
+                    // Only add rows that have at least one non-empty cell
+                    if (hasData) {
+                        data.push(rowData);
+                    }
+                }
+                
+                return data;
             },
         };
     }
