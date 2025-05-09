@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Extraction Field Classifier</title>
+    <!-- Alpine.js for state management -->
+    <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
+    <!-- SheetJS for Excel file handling -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.5.10/css/pico.min.css">
+    <style>
+        /* Scale down the entire UI */
+        :root {
+            font-size: 14px; /* Reduced from default 16px */
+        }
+
+        body {
+            margin: 0;
+            padding: 1rem;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            background-color: var(--card-background-color);
+            border: 1px solid var(--card-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            flex: 0 0 auto;
+        }
+
+        .info-box {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--primary);
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: 0.25rem;
+        }
+
+        .file-inputs {
+            margin-bottom: 1rem;
+        }
+
+        .file-input-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: nowrap;
+            width: 100%;
+        }
+
+        .status-message {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-message.loading {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--primary);
+        }
+
+        .status-message.error {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        .info-box.success {
+            background-color: rgba(34, 197, 94, 0.1);
+            border-left: 3px solid #22c55e;
+        }
+
+        .spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .full-width-card {
+            grid-column: 1 / -1;
+        }
+
+        .adhoc-file-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+
+        .adhoc-file-list table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .adhoc-file-list th, .adhoc-file-list td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border-color);
+        }
+
+        .adhoc-file-list tr {
+            cursor: pointer;
+        }
+
+        .adhoc-file-list tr:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+
+        .adhoc-file-list tr.selected-row {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-start;
+        }
+
+        .export-button {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .theme-switcher {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            width: 2rem;
+            height: 2rem;
+            background-color: var(--card-background-color);
+            border: 1px solid var(--card-border-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-switcher svg {
+            width: 1.25rem;
+            height: 1.25rem;
+            stroke: var(--text-color);
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        [data-theme="dark"] {
+            --card-background-color: #1e293b;
+            --card-border-color: #334155;
+            --text-color: #f8fafc;
+            --primary: #3b82f6;
+            color-scheme: dark;
+        }
+
+        [data-theme="light"] {
+            --card-background-color: #ffffff;
+            --card-border-color: #e2e8f0;
+            --text-color: #0f172a;
+            --primary: #3b82f6;
+            color-scheme: light;
+        }
+    </style>
+</head>
+<body x-data="{ ...app(), theme: 'dark' }" x-init="initTheme()" :data-theme="theme" :style="`background-color: ${theme === 'light' ? '#CCCCCC' : ''};`">
+<!-- Theme Switcher -->
+<div class="theme-switcher" @click="toggleTheme()">
+    <!-- Sun icon for light mode -->
+    <svg x-show="theme === 'light'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+    <!-- Moon icon for dark mode -->
+    <svg x-show="theme === 'dark'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+</div>
+
+<div class="container">
+    <h1>Data Extraction Field Classifier</h1>
+
+    <!-- Steps Grid -->
+    <div class="grid">
+        <!-- Step 1 Card -->
+        <div class="card">
+            <h2>Step 1: Load Metadata File</h2>
+            <div class="info-box">
+                Select an Excel (.xlsx) file containing both ADIDO Metadata and Adhoc Data sheets.
+            </div>
+            <div class="file-inputs">
+                <div class="file-input-row">
+                    <label>Browse for Excel file:</label>
+                    <input type="file" id="metadata-file" accept=".xlsx,.xls" @change="loadMetadataFile($event)">
+                </div>
+                
+                <!-- Loading message -->
+                <div class="status-message loading" x-show="metadataStatus.includes('Loading')">
+                    <div class="spinner"></div>
+                    <span x-text="metadataStatus"></span>
+                </div>
+                
+                <!-- Error message -->
+                <div class="status-message error" x-show="metadataStatus.includes('Failed')">
+                    <span x-text="metadataStatus"></span>
+                </div>
+                
+                <!-- Success message -->
+                <div class="info-box success" x-show="metadataStatus.includes('successfully')">
+                    <p>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</p>
+                    <template x-if="adhocDataCount > 0">
+                        <p>✓ Adhoc Data sheets loaded: <span x-text="adhocDataCount"></span> records</p>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2 Card -->
+        <div class="card">
+            <h2>Step 2</h2>
+            <div class="info-box">
+                Load ADIDO Metadata Template files.
+            </div>
+            <div class="file-inputs">
+                <div class="file-input-row">
+                    <label>Browse for ADIDO Template:</label>
+                    <input type="file" id="adido-template-file" accept=".xlsx,.xls" @change="loadADIDOTemplateFile($event)">
+                </div>
+                
+                <!-- Loading message -->
+                <div class="status-message loading" x-show="templateStatus.includes('Loading')">
+                    <div class="spinner"></div>
+                    <span x-text="templateStatus"></span>
+                </div>
+                
+                <!-- Error message -->
+                <div class="status-message error" x-show="templateStatus.includes('Failed')">
+                    <span x-text="templateStatus"></span>
+                </div>
+                
+                <!-- Success message -->
+                <div class="info-box success" x-show="templateStatus.includes('successfully')">
+                    <p>✓ ADIDO Template loaded successfully</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3 Card -->
+        <div class="card full-width-card">
+            <h2>Step 3</h2>
+            <div class="info-box">
+                Select files to generate ADIDO template
+            </div>
+            
+            <!-- Table with file selection -->
+            <div class="adhoc-file-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Selection</th>
+                            <th>Source</th>
+                            <th>File Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in adhocData" :key="index">
+                            <tr @click="toggleFileSelection(item.file_name)" :class="{ 'selected-row': isFileSelected(item.file_name) }">
+                                <td>
+                                    <input type="checkbox" :checked="isFileSelected(item.file_name)" @click.stop>
+                                </td>
+                                <td x-text="item.data_source === 'data_in' ? 'Data In' : 'Data Out'"></td>
+                                <td x-text="item.file_name"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Buttons -->
+            <div class="buttons" style="margin-top: 1rem;">
+                <button @click="generateADIDOTemplate()" class="export-button" :disabled="adhocDataCount === 0 || selectedAdhocFiles.length === 0">
+                    Generate ADIDO template
+                </button>
+                <button @click="closeWindow()">Close Window</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function app() {
+        return {
+            adidoMetadata: [],
+            adhocData: [],
+            metadataStatus: '',
+            templateStatus: '',
+            adidoMetadataCount: 0,
+            adhocDataCount: 0,
+            selectedAdhocFiles: [],
+            templateData: null,
+            
+            // Adhoc data column mapping
+            adhocDataMapping: {
+                "Status": "status",
+                "Team Requesting": "team_requesting",
+                "Sub-Team requesting": "sub_team_requesting",
+                "Also requested by other LOB?": "also_requested_by_other_lob",
+                "New/Existing Initiative": "initiative_status",
+                "File Name": "file_name",
+                "Data Out Purpose": "data_out_purpose",
+                "Type of Data Out": "data_out_type",
+                "Frequency": "frequency",
+                "Process Name": "process_name",
+                "Recipient": "recipient",
+                "Recipient Name": "recipient_name",
+                "Contain PII?": "contains_pii",
+                "If External - Please specify 3rd party": "external_third_party",
+                "is the Recipient from another AZ": "recipient_from_another_az",
+                "Will it be used in Use-cases?": "used_in_usecases",
+                "Usecase SME": "usecase_sme",
+                "Impact": "impact",
+                "File Type": "file_type",
+                "Retention Code": "retention_code",
+                "Retention Period": "retention_period",
+                "Impacted Jurisdiction Country": "jurisdiction_country",
+                "Impacted Jurisdiction Province": "jurisdiction_province"
+            },
+
+            // Theme functions
+            initTheme() {
+                // Check for saved theme preference or use default (dark)
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                this.theme = savedTheme;
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            },
+            
+            toggleTheme() {
+                // Toggle between light and dark themes
+                const newTheme = this.theme === 'light' ? 'dark' : 'light';
+                this.theme = newTheme;
+                localStorage.setItem('theme', newTheme);
+                document.documentElement.setAttribute('data-theme', newTheme);
+            },
+            
+            closeWindow() {
+                window.close();
+            },
+
+            // File loading functions
+            loadMetadataFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.metadataStatus = 'Loading metadata file... Please wait.';
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.processExcelFile(e.target.result);
+                };
+                reader.onerror = () => {
+                    this.metadataStatus = 'Failed to read file. Please try again.';
+                };
+                reader.readAsArrayBuffer(file);
+            },
+
+            loadADIDOTemplateFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.templateStatus = 'Loading ADIDO template file... Please wait.';
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.processTemplateFile(e.target.result);
+                };
+                reader.onerror = () => {
+                    this.templateStatus = 'Failed to read template file. Please try again.';
+                };
+                reader.readAsArrayBuffer(file);
+            },
+
+            processTemplateFile(buffer) {
+                try {
+                    const data = new Uint8Array(buffer);
+                    // Use type: 'array' and bookType: 'xlsx' to preserve formatting
+                    const workbook = XLSX.read(data, {type: 'array', bookType: 'xlsx'});
+                    
+                    // Store the template data for later use
+                    this.templateData = workbook;
+                    this.templateStatus = 'ADIDO template loaded successfully!';
+                } catch (error) {
+                    console.error('Error processing template file:', error);
+                    this.templateStatus = `Failed to process template file: ${error.message}`;
+                }
+            },
+
+            processExcelFile(buffer) {
+                try {
+                    const data = new Uint8Array(buffer);
+                    const workbook = XLSX.read(data, {type: 'array'});
+
+                    // Check if ADIDO Metadata sheet exists
+                    if (!workbook.SheetNames.includes('ADIDO Metadata')) {
+                        throw new Error('Excel file must contain "ADIDO Metadata" sheet');
+                    }
+
+                    // Process ADIDO Metadata sheet
+                    const adidoWorksheet = workbook.Sheets['ADIDO Metadata'];
+                    const adidoJsonData = XLSX.utils.sheet_to_json(adidoWorksheet);
+                    this.adidoMetadata = this.mapAdidoMetadataToInternalSchema(adidoJsonData);
+                    this.adidoMetadataCount = this.adidoMetadata.length;
+
+                    // Process Adhoc Data-In sheet if it exists
+                    this.adhocData = [];
+                    if (workbook.SheetNames.includes('Adhoc Data-In')) {
+                        const adhocInWorksheet = workbook.Sheets['Adhoc Data-In'];
+                        const adhocInJsonData = XLSX.utils.sheet_to_json(adhocInWorksheet);
+                        const mappedInData = this.mapAdhocDataToInternalSchema(adhocInJsonData, 'data_in');
+                        this.adhocData = [...this.adhocData, ...mappedInData];
+                    }
+                    
+                    // Process Adhoc Data-Out sheet if it exists
+                    if (workbook.SheetNames.includes('Adhoc Data-Out')) {
+                        const adhocOutWorksheet = workbook.Sheets['Adhoc Data-Out'];
+                        const adhocOutJsonData = XLSX.utils.sheet_to_json(adhocOutWorksheet);
+                        const mappedOutData = this.mapAdhocDataToInternalSchema(adhocOutJsonData, 'data_out');
+                        this.adhocData = [...this.adhocData, ...mappedOutData];
+                    }
+                    
+                    this.adhocDataCount = this.adhocData.length;
+                    this.metadataStatus = 'Metadata loaded successfully!';
+                } catch (error) {
+                    console.error('Error processing Excel file:', error);
+                    this.metadataStatus = `Failed to process Excel file: ${error.message}`;
+                }
+            },
+            
+            mapAdidoMetadataToInternalSchema(data) {
+                return data.map(item => {
+                    return {
+                        report_file: item['File Name'] || '',
+                        field_name: item['Field Name'] || '',
+                        business_description: item['Business Description'] || '',
+                        classification: item['Classification'] || '',
+                        pi: item['PI'] === 'Yes' || item['PI'] === true,
+                        pci: item['PCI'] === 'Yes' || item['PCI'] === true,
+                        treatment: item['Data Treatment'] || ''
+                    };
+                });
+            },
+            
+            mapAdhocDataToInternalSchema(data, dataSource) {
+                return data.map(item => {
+                    const mappedItem = { data_source: dataSource };
+                    
+                    // Map each column using the mapping object
+                    Object.keys(this.adhocDataMapping).forEach(key => {
+                        const internalKey = this.adhocDataMapping[key];
+                        mappedItem[internalKey] = item[key] || '';
+                    });
+                    
+                    return mappedItem;
+                });
+            },
+            
+            toggleFileSelection(fileName) {
+                if (this.isFileSelected(fileName)) {
+                    this.selectedAdhocFiles = this.selectedAdhocFiles.filter(f => f !== fileName);
+                } else {
+                    this.selectedAdhocFiles.push(fileName);
+                }
+            },
+            
+            isFileSelected(fileName) {
+                return this.selectedAdhocFiles.includes(fileName);
+            },
+            
+            generateADIDOTemplate() {
+                if (!this.templateData) {
+                    alert('Please load an ADIDO template file first.');
+                    return;
+                }
+                
+                if (this.selectedAdhocFiles.length === 0) {
+                    alert('Please select at least one file to generate the template.');
+                    return;
+                }
+                
+                try {
+                    // Create a copy of the template workbook
+                    const workbook = this.templateData;
+                    
+                    // Generate field metadata
+                    const fieldMetadata = this.generateFieldMetadata();
+                    
+                    // Generate file metadata
+                    const fileMetadata = this.generateFileMetadata();
+                    
+                    // Update Field Metadata sheet - use cell-by-cell approach to preserve formatting
+                    if (workbook.SheetNames.includes('Field Metadata')) {
+                        const fieldSheet = workbook.Sheets['Field Metadata'];
+                        this.updateSheetCellByCell(fieldSheet, fieldMetadata, 'A4');
+                    } else {
+                        console.error('Field Metadata sheet not found in template');
+                    }
+                    
+                    // Update File Metadata sheet - use cell-by-cell approach to preserve formatting
+                    if (workbook.SheetNames.includes('File Metadata')) {
+                        const fileSheet = workbook.Sheets['File Metadata'];
+                        this.updateSheetCellByCell(fileSheet, fileMetadata, 'A6');
+                    } else {
+                        console.error('File Metadata sheet not found in template');
+                    }
+                    
+                    // Generate and download the Excel file with formatting preserved
+                    const excelBuffer = XLSX.write(workbook, { 
+                        bookType: 'xlsx', 
+                        type: 'array',
+                        cellStyles: true,
+                        bookSST: false
+                    });
+                    this.saveExcelFile(excelBuffer, 'ADIDO_Template_Generated.xlsx');
+                    
+                } catch (error) {
+                    console.error('Error generating ADIDO template:', error);
+                    alert(`Failed to generate ADIDO template: ${error.message}`);
+                }
+            },
+            
+            generateFieldMetadata() {
+                // Filter adidoMetadata to keep only fields from selected files
+                return this.adidoMetadata
+                    .filter(field => this.selectedAdhocFiles.includes(field.report_file))
+                    .map(field => {
+                        return [
+                            field.report_file,
+                            field.field_name,
+                            field.business_description,
+                            field.classification,
+                            field.pci ? 'Yes' : 'No',
+                            field.pi ? 'Yes' : 'No',
+                            field.treatment
+                        ];
+                    });
+            },
+            
+            generateFileMetadata() {
+                // Group adhoc data by file name
+                const fileGroups = {};
+                this.selectedAdhocFiles.forEach(fileName => {
+                    const fileData = this.adhocData.find(item => item.file_name === fileName);
+                    if (fileData) {
+                        fileGroups[fileName] = fileData;
+                    }
+                });
+                
+                // Calculate file-level metadata
+                return Object.values(fileGroups).map(file => {
+                    // Get all fields for this file
+                    const fileFields = this.adidoMetadata.filter(field => field.report_file === file.file_name);
+                    
+                    // Calculate classification (highest level)
+                    const classificationOrder = ['Public', 'Internal', 'Confidential', 'Restricted', 'Critical'];
+                    let highestClassification = 'Public';
+                    
+                    fileFields.forEach(field => {
+                        const fieldClassIndex = classificationOrder.indexOf(field.classification);
+                        const highestClassIndex = classificationOrder.indexOf(highestClassification);
+                        
+                        if (fieldClassIndex > highestClassIndex) {
+                            highestClassification = field.classification;
+                        }
+                    });
+                    
+                    // Calculate PI/PCI (if any field has PI/PCI, then file has PI/PCI)
+                    const hasPi = fileFields.some(field => field.pi);
+                    const hasPci = fileFields.some(field => field.pci);
+                    
+                    // Create file metadata row
+                    return [
+                        file.file_name,
+                        file.file_type || '',
+                        file.data_source === 'data_out' ? file.data_out_purpose || '' : '',
+                        highestClassification,
+                        hasPci ? 'Yes' : 'No',
+                        hasPi ? 'Yes' : 'No',
+                        file.retention_code || '',
+                        file.retention_period || '',
+                        file.jurisdiction_country || '',
+                        file.jurisdiction_province || '',
+                        '', // delimiter (always empty)
+                        ''  // line_length (always empty)
+                    ];
+                });
+            },
+            
+            saveExcelFile(buffer, fileName) {
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 100);
+            },
+            
+            // Helper function to update cells while preserving formatting
+            updateSheetCellByCell(sheet, data, startCell) {
+                // Parse the starting cell reference
+                const startCellRef = XLSX.utils.decode_cell(startCell);
+                const startRow = startCellRef.r;
+                const startCol = startCellRef.c;
+                
+                // Update each cell individually to preserve formatting
+                data.forEach((row, rowIndex) => {
+                    row.forEach((cellValue, colIndex) => {
+                        const cellRef = XLSX.utils.encode_cell({
+                            r: startRow + rowIndex,
+                            c: startCol + colIndex
+                        });
+                        
+                        // Get existing cell to preserve style properties
+                        const existingCell = sheet[cellRef];
+                        
+                        // Create new cell with value but preserve style if it exists
+                        if (existingCell && existingCell.s) {
+                            // If cell exists, update its value but keep style
+                            sheet[cellRef] = {
+                                t: typeof cellValue === 'string' ? 's' : 'n',
+                                v: cellValue,
+                                s: existingCell.s // Preserve style
+                            };
+                        } else {
+                            // If cell doesn't exist, create new one
+                            sheet[cellRef] = {
+                                t: typeof cellValue === 'string' ? 's' : 'n',
+                                v: cellValue
+                            };
+                        }
+                    });
+                });
+                
+                // Update sheet range if necessary
+                const endRow = startRow + data.length - 1;
+                const endCol = startCol + (data[0] ? data[0].length - 1 : 0);
+                const endCell = XLSX.utils.encode_cell({ r: endRow, c: endCol });
+                
+                // Ensure the sheet range covers all our new data
+                const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
+                if (endRow > range.e.r) range.e.r = endRow;
+                if (endCol > range.e.c) range.e.c = endCol;
+                sheet['!ref'] = XLSX.utils.encode_range(range);
+            }
+        };
+    }
+</script>
+</body>
+</html>
