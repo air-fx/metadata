@@ -54,7 +54,7 @@ UI:
 - Card title: "Step 3"
 - info box: "Select files to generate ADIDO template"
 - Table: list of report files from `adido_data` with checkboxes (columns: Selection, Source, File Name)
-- Two buttons: "Generate ADIDO template" (Submit) and "Close Window"
+- Submit button: "Generate ADIDO template" (placed below the table, centered)
 Card is placed below Step1 and 2, and takes whole width. 
 
 Submit button produces two lists:

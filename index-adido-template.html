@@ -15,11 +15,48 @@
             font-size: 14px; /* Reduced from default 16px */
         }
 
+        /* Dark mode styles */
+        [data-theme="dark"] {
+            --background-color: #2480c5;
+            --new-background-color: #11191f;
+            --color: #f2f2f2;
+            --card-background-color: #1e2a36;
+            --card-border-color: #374956;
+            --form-element-background-color: #1e2a36;
+            --form-element-border-color: #374956;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #d64707;
+            --secondary-hover: #cd5f24;
+            --hover-row-color: rgba(59, 130, 246, 0.15);
+        }
+
+        /* Light mode styles */
+        [data-theme="light"] {
+            --background-color: #c83535;
+            --new-background-color: #e8ece9;
+            --color: #11191f;
+            --card-background-color: #f9fafb;
+            --card-border-color: #e5e7eb;
+            --form-element-background-color: #ffffff;
+            --form-element-border-color: #d1d5db;
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --secondary: #d64707;
+            --secondary-hover: #cd5f24;
+            --hover-row-color: rgba(59, 130, 246, 0.1);
+        }
+
         body {
-            margin: 0;
+            max-width: 1400px;
+            margin: 0 auto;
             padding: 1rem;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             line-height: 1.5;
+        }
+
+        html {
+            background-color: var(--new-background-color);
         }
 
         .container {
@@ -28,27 +65,22 @@
             padding: 0 1rem;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-
+        /* Card styles */
         .card {
+            display: flex;
+            flex-direction: column;
             background-color: var(--card-background-color);
             border: 1px solid var(--card-border-color);
             border-radius: 0.5rem;
             padding: 1rem;
+            margin-bottom: 1.5rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
         }
 
         .card h2 {
             margin-top: 0;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
             font-size: 1.25rem;
-            flex: 0 0 auto;
         }
 
         .info-box {
@@ -56,38 +88,113 @@
             border-left: 3px solid var(--primary);
             padding: 0.75rem;
             margin-bottom: 1rem;
+            font-size: 0.9rem;
             border-radius: 0.25rem;
         }
 
-        .file-inputs {
-            margin-bottom: 1rem;
+        /* Grid layout */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
         }
 
-        .file-input-row {
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .full-width-card {
+            grid-column: 1 / -1;
+        }
+
+        /* Button and form adjustments */
+        .buttons {
             display: flex;
             align-items: center;
             gap: 1rem;
-            margin-bottom: 0.5rem;
-            flex-wrap: nowrap;
-            width: 100%;
         }
 
-        .status-message {
+        button {
+            margin: 0;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        /* Reduce size of form elements */
+        input, select, button {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
+        }
+
+        /* Table adjustments */
+        table {
+            font-size: 0.9rem;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--card-border-color);
+        }
+
+        th {
+            font-size: 0.85rem; /* Reduce header size by ~20% */
+        }
+
+        /* Add styles for theme switcher */
+        .theme-switcher {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background-color: var(--card-background-color);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: transform 0.8s ease;
+        }
+
+        .theme-switcher:hover {
+            transform: rotate(30deg);
+        }
+
+        .theme-switcher svg {
+            width: 1.5rem;
+            height: 1.5rem;
+            fill: none;
+            stroke: var(--color);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Status messages */
+        .status-message {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
             border-radius: 0.25rem;
-            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
         .status-message.loading {
             background-color: rgba(59, 130, 246, 0.1);
-            color: var(--primary);
+            border-left: 3px solid var(--primary);
         }
 
         .status-message.error {
             background-color: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
             color: #ef4444;
         }
 
@@ -96,9 +203,10 @@
             border-left: 3px solid #22c55e;
         }
 
+        /* Loading spinner */
         .spinner {
-            width: 1rem;
-            height: 1rem;
+            width: 1.25rem;
+            height: 1.25rem;
             border: 2px solid rgba(59, 130, 246, 0.3);
             border-radius: 50%;
             border-top-color: var(--primary);
@@ -111,25 +219,35 @@
             }
         }
 
-        .full-width-card {
-            grid-column: 1 / -1;
+        .file-input-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: nowrap;
+            width: 100%;
         }
 
+        .file-input-row label {
+            white-space: nowrap;
+            flex: 0 0 auto;
+            min-width: 150px;
+        }
+
+        .file-input-row input[type="file"] {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .file-inputs {
+            margin-bottom: 1rem;
+        }
+
+        /* Adhoc file list styles */
         .adhoc-file-list {
             max-height: 400px;
             overflow-y: auto;
             margin-bottom: 1rem;
-        }
-
-        .adhoc-file-list table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .adhoc-file-list th, .adhoc-file-list td {
-            padding: 0.5rem;
-            text-align: left;
-            border-bottom: 1px solid var(--card-border-color);
         }
 
         .adhoc-file-list tr {
@@ -137,17 +255,11 @@
         }
 
         .adhoc-file-list tr:hover {
-            background-color: rgba(59, 130, 246, 0.05);
+            background-color: var(--hover-row-color);
         }
 
         .adhoc-file-list tr.selected-row {
-            background-color: rgba(59, 130, 246, 0.1);
-        }
-
-        .buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-start;
+            background-color: var(--hover-row-color);
         }
 
         .export-button {
@@ -155,51 +267,12 @@
             color: white;
         }
 
-        .theme-switcher {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            width: 2rem;
-            height: 2rem;
-            background-color: var(--card-background-color);
-            border: 1px solid var(--card-border-color);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            z-index: 100;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .theme-switcher svg {
-            width: 1.25rem;
-            height: 1.25rem;
-            stroke: var(--text-color);
-            fill: none;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-        }
-
-        [data-theme="dark"] {
-            --card-background-color: #1e293b;
-            --card-border-color: #334155;
-            --text-color: #f8fafc;
-            --primary: #3b82f6;
-            color-scheme: dark;
-        }
-
-        [data-theme="light"] {
-            --card-background-color: #ffffff;
-            --card-border-color: #e2e8f0;
-            --text-color: #0f172a;
-            --primary: #3b82f6;
-            color-scheme: light;
+        .export-button:hover {
+            background-color: var(--primary-hover);
         }
     </style>
 </head>
-<body x-data="{ ...app(), theme: 'dark' }" x-init="initTheme()" :data-theme="theme" :style="`background-color: ${theme === 'light' ? '#CCCCCC' : ''};`">
+<body x-data="{ ...app(), theme: 'dark' }" x-init="initTheme()" :data-theme="theme">
 <!-- Theme Switcher -->
 <div class="theme-switcher" @click="toggleTheme()">
     <!-- Sun icon for light mode -->
@@ -221,7 +294,7 @@
 </div>
 
 <div class="container">
-    <h1>Data Extraction Field Classifier</h1>
+    <h1 style="margin-bottom: 24px;">Data Extraction Field Classifier</h1>
 
     <!-- Steps Grid -->
     <div class="grid">
@@ -250,9 +323,9 @@
                 
                 <!-- Success message -->
                 <div class="info-box success" x-show="metadataStatus.includes('successfully')">
-                    <p>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</p>
+                    <span>✓ ADIDO Metadata sheet loaded: <span x-text="adidoMetadataCount"></span> records</span>
                     <template x-if="adhocDataCount > 0">
-                        <p>✓ Adhoc Data sheets loaded: <span x-text="adhocDataCount"></span> records</p>
+                        <span><br/>✓ Adhoc Data sheets loaded: <span x-text="adhocDataCount"></span> records</span>
                     </template>
                 </div>
             </div>
@@ -283,7 +356,7 @@
                 
                 <!-- Success message -->
                 <div class="info-box success" x-show="templateStatus.includes('successfully')">
-                    <p>✓ ADIDO Template loaded successfully</p>
+                    <span>✓ ADIDO Template loaded successfully</span>
                 </div>
             </div>
         </div>
