@@ -64,7 +64,7 @@ This list is the `adido_metadata` list filtered to keep only `report_file` that 
 ```python
 _ = ["report_file", "field_name", "business_description", "classification", "pci", "pi", "treatment"]
 ```
-This list is then ingested into `adido_template` excel file on the `Field Metadata` sheet at cell `A4`.
+This list is then ingested into `adido_template` excel file on the `Field Metadata` sheet at cell `A6`.
 
 ### `tpl_files` - List of files
 For each `report_file` user selected, get matching record from `adhoc_data` whose `file_name` match user's selection.
@@ -82,7 +82,7 @@ New list contains calculated values and has following columns:
 - delimiter - always empty
 - line_length - always empty
 
-This list is then ingested into `adido_template` excel file on the `File Metadata` sheet at cell `A6`.
+This list is then ingested into `adido_template` excel file on the `File Metadata` sheet at cell `A4`.
 
 
 Once both lists are generated, `adido_template` is saved to user's local disk.

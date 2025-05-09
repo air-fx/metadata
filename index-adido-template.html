@@ -8,6 +8,8 @@
     <script src="https://unpkg.com/alpinejs@3.13.0/dist/cdn.min.js" defer></script>
     <!-- SheetJS for Excel file handling -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <!-- XLSX-Populate for preserving Excel formatting -->
+    <script src="https://unpkg.com/xlsx-populate@1.21.0/browser/xlsx-populate.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@1.5.10/css/pico.min.css">
     <style>
         /* Scale down the entire UI */
@@ -424,13 +426,16 @@
 
             processTemplateFile(buffer) {
                 try {
-                    const data = new Uint8Array(buffer);
-                    // Use type: 'array' and bookType: 'xlsx' to preserve formatting
-                    const workbook = XLSX.read(data, {type: 'array', bookType: 'xlsx'});
-                    
-                    // Store the template data for later use
-                    this.templateData = workbook;
-                    this.templateStatus = 'ADIDO template loaded successfully!';
+                    // Load the template with XLSX-Populate to preserve formatting
+                    XlsxPopulate.fromDataAsync(buffer)
+                        .then(workbook => {
+                            this.templateData = workbook;
+                            this.templateStatus = 'ADIDO template loaded successfully!';
+                        })
+                        .catch(error => {
+                            console.error('Error processing template file:', error);
+                            this.templateStatus = `Failed to process template file: ${error.message}`;
+                        });
                 } catch (error) {
                     console.error('Error processing template file:', error);
                     this.templateStatus = `Failed to process template file: ${error.message}`;
@@ -530,7 +535,6 @@
                 }
                 
                 try {
-                    // Create a copy of the template workbook
                     const workbook = this.templateData;
                     
                     // Generate field metadata
@@ -539,30 +543,31 @@
                     // Generate file metadata
                     const fileMetadata = this.generateFileMetadata();
                     
-                    // Update Field Metadata sheet - use cell-by-cell approach to preserve formatting
-                    if (workbook.SheetNames.includes('Field Metadata')) {
-                        const fieldSheet = workbook.Sheets['Field Metadata'];
-                        this.updateSheetCellByCell(fieldSheet, fieldMetadata, 'A4');
+                    // Update Field Metadata sheet
+                    const fieldSheet = workbook.sheet('Field Metadata');
+                    if (fieldSheet) {
+                        this.populateSheetData(fieldSheet, fieldMetadata, 'A6');
                     } else {
                         console.error('Field Metadata sheet not found in template');
                     }
                     
-                    // Update File Metadata sheet - use cell-by-cell approach to preserve formatting
-                    if (workbook.SheetNames.includes('File Metadata')) {
-                        const fileSheet = workbook.Sheets['File Metadata'];
-                        this.updateSheetCellByCell(fileSheet, fileMetadata, 'A6');
+                    // Update File Metadata sheet
+                    const fileSheet = workbook.sheet('File Metadata');
+                    if (fileSheet) {
+                        this.populateSheetData(fileSheet, fileMetadata, 'A4');
                     } else {
                         console.error('File Metadata sheet not found in template');
                     }
                     
                     // Generate and download the Excel file with formatting preserved
-                    const excelBuffer = XLSX.write(workbook, { 
-                        bookType: 'xlsx', 
-                        type: 'array',
-                        cellStyles: true,
-                        bookSST: false
-                    });
-                    this.saveExcelFile(excelBuffer, 'ADIDO_Template_Generated.xlsx');
+                    workbook.outputAsync()
+                        .then(blob => {
+                            this.saveExcelFile(blob, 'ADIDO_Template_Generated.xlsx');
+                        })
+                        .catch(error => {
+                            console.error('Error generating Excel file:', error);
+                            alert(`Failed to generate Excel file: ${error.message}`);
+                        });
                     
                 } catch (error) {
                     console.error('Error generating ADIDO template:', error);
@@ -637,8 +642,30 @@
                 });
             },
             
-            saveExcelFile(buffer, fileName) {
-                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            // Helper function to populate sheet data while preserving formatting
+            populateSheetData(sheet, data, startCell) {
+                // Parse the starting cell reference (e.g., 'A4' -> row 4, column 1)
+                const match = startCell.match(/([A-Z]+)([0-9]+)/);
+                if (!match) return;
+                
+                const colLetter = match[1];
+                const startRow = parseInt(match[2]);
+                
+                // Populate data
+                data.forEach((row, rowIndex) => {
+                    row.forEach((value, colIndex) => {
+                        // Calculate cell address (A4, B4, etc.)
+                        const colAddress = String.fromCharCode(colLetter.charCodeAt(0) + colIndex);
+                        const rowAddress = startRow + rowIndex;
+                        const cellAddress = `${colAddress}${rowAddress}`;
+                        
+                        // Set cell value while preserving formatting
+                        sheet.cell(cellAddress).value(value);
+                    });
+                });
+            },
+            
+            saveExcelFile(blob, fileName) {
                 const url = URL.createObjectURL(blob);
                 
                 const a = document.createElement('a');
@@ -650,54 +677,6 @@
                     URL.revokeObjectURL(url);
                 }, 100);
             },
-            
-            // Helper function to update cells while preserving formatting
-            updateSheetCellByCell(sheet, data, startCell) {
-                // Parse the starting cell reference
-                const startCellRef = XLSX.utils.decode_cell(startCell);
-                const startRow = startCellRef.r;
-                const startCol = startCellRef.c;
-                
-                // Update each cell individually to preserve formatting
-                data.forEach((row, rowIndex) => {
-                    row.forEach((cellValue, colIndex) => {
-                        const cellRef = XLSX.utils.encode_cell({
-                            r: startRow + rowIndex,
-                            c: startCol + colIndex
-                        });
-                        
-                        // Get existing cell to preserve style properties
-                        const existingCell = sheet[cellRef];
-                        
-                        // Create new cell with value but preserve style if it exists
-                        if (existingCell && existingCell.s) {
-                            // If cell exists, update its value but keep style
-                            sheet[cellRef] = {
-                                t: typeof cellValue === 'string' ? 's' : 'n',
-                                v: cellValue,
-                                s: existingCell.s // Preserve style
-                            };
-                        } else {
-                            // If cell doesn't exist, create new one
-                            sheet[cellRef] = {
-                                t: typeof cellValue === 'string' ? 's' : 'n',
-                                v: cellValue
-                            };
-                        }
-                    });
-                });
-                
-                // Update sheet range if necessary
-                const endRow = startRow + data.length - 1;
-                const endCol = startCol + (data[0] ? data[0].length - 1 : 0);
-                const endCell = XLSX.utils.encode_cell({ r: endRow, c: endCol });
-                
-                // Ensure the sheet range covers all our new data
-                const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1');
-                if (endRow > range.e.r) range.e.r = endRow;
-                if (endCol > range.e.c) range.e.c = endCol;
-                sheet['!ref'] = XLSX.utils.encode_range(range);
-            }
         };
     }
 </script>
