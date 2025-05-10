@@ -7,7 +7,7 @@ The ADIDO Template Generator is a web-based tool that helps users generate ADIDO
 ## Features
 
 - Load metadata from Excel files containing ADIDO Metadata and Adhoc Data sheets
-- Load ADIDO template Excel files that will be populated with the metadata
+- Use a built-in default ADIDO template or load your own custom template
 - Select specific files to include in the template generation
 - Filter the file list to quickly find relevant files
 - Validate data quality with warning notifications for invalid values
@@ -26,11 +26,14 @@ The ADIDO Template Generator is a web-based tool that helps users generate ADIDO
 
 ### Step 2: Load ADIDO Template
 
-1. Click the "Browse" button in the Step 2 card
-2. Select the ADIDO Template Excel file (.xlsx) that will be populated
-3. This template must contain:
+1. Either:
+   - Click "Use Default Template" to use the built-in template, or
+   - Select "Or use custom" to upload your own ADIDO Template Excel file (.xlsx)
+2. Enter the AZ Name in the text field provided (this will be included in the generated template)
+3. The template must contain:
    - Field Metadata sheet: Will be populated with field-level information
    - File Metadata sheet: Will be populated with file-level information
+4. A success message will appear when the template is loaded
 
 ### Step 3: Select Files for ADIDO
 
@@ -133,19 +136,62 @@ Internal object schema (with data_source added):
 }
 ```
 
+### Default Template Implementation
+
+The application includes a built-in default ADIDO template that is embedded as a base64-encoded string. This provides users with a convenient option while still allowing them to upload custom templates.
+
+#### How the Default Template Works:
+
+1. The Excel template file is converted to a base64 string using a Python script:
+
+   [xlsx2base64.py](src/xlsx2base64.py)
+   ```python
+   import base64
+
+   # Path to Excel template file
+   fname = "../data/ADIDO Metadata Template_base64"
+   excel_file_path = f'{fname}.xlsx'
+   
+   # Read the Excel file in binary mode
+   with open(excel_file_path, 'rb') as file:
+       excel_data = file.read()
+   
+   # Convert to base64
+   base64_encoded = base64.b64encode(excel_data)
+   
+   # Convert bytes to string for easier handling
+   base64_string = base64_encoded.decode('utf-8')
+   
+   # Print to console
+   print(base64_string)
+   
+   # Optionally save to a file
+   with open(f"{fname}_base64.txt", 'w') as output_file:
+       output_file.write(base64_string)
+   
+   print(f"Base64 encoding complete. Output saved to {fname}_base64.txt")
+   ```
+
+2. The base64 string is stored in the application code
+3. When the user clicks "Use Default Template", the application:
+   - Converts the base64 string back to binary
+   - Loads it using XLSX-Populate
+   - Processes it the same way as an uploaded template
+
 ### Template Generation Process
 
 1. **Field Metadata Generation**:
-   - Filter `adidoMetadata` to include only fields from selected files
+   - Set the AZ Name in cell B3 of the Field Metadata sheet
+   - Filter `adido_metadata` to include only fields from selected files
    - Extract the following properties: report_file, field_name, business_description, classification, pci, pi, treatment
    - Write this data to the Field Metadata sheet starting at cell A6
 
 2. **File Metadata Generation**:
-   - For each selected file, find matching record in `adhocData`
+   - For each selected file, find matching record in `adhoc_data`
    - Calculate aggregated values:
-     - classification: Highest classification of all fields in the file (Critical > Restricted > Confidential > Internal > Public)
-     - pci: Yes if any field has pci = yes
-     - pi: Yes if any field has pi = yes
+     - `classification`: Highest classification of all fields in the file (Critical > Restricted > Confidential > Internal > Public)
+     - `pci`: Yes if any field has pci = yes
+     - `pi`: Yes if any field has pi = yes
    - Extract file-level properties: file_name, file_type, business_description, etc.
    - Write this data to the File Metadata sheet starting at cell A4
 
@@ -162,17 +208,18 @@ Validation warnings are displayed in a modal dialog when issues are found.
 
 1. **Browser Compatibility**:
    - Requires a modern browser with JavaScript enabled
-   - Tested on Chrome, Firefox, Edge, and Safari (latest versions)
    - May not work on older browsers or mobile devices with limited capabilities
 
 2. **File Size Limitations**:
    - Large Excel files (>10MB) may cause performance issues
    - Processing time increases with the number of records
+   - The embedded default template increases the initial page load size
 
 3. **Template Requirements**:
    - ADIDO Template must have specific sheet names and cell positions
-   - Field Metadata must be written starting at cell A6
-   - File Metadata must be written starting at cell A4
+   - Field Metadata must be written starting at cell `A6`
+   - File Metadata must be written starting at cell `A4`
+   - Custom templates must follow the same structure as the default template
 
 4. **Data Quality**:
    - The application validates some data quality issues but cannot detect all problems
@@ -192,13 +239,20 @@ Validation warnings are displayed in a modal dialog when issues are found.
    - The `generateADIDOTemplate` function handles the template population logic
    - Modify the cell references if the template format changes
 
-3. **UI Customization**:
+3. **Updating the Default Template**:
+   - Create a new Excel template file
+   - Run the Python script to convert it to base64
+   - Replace the `defaultTemplateBase64` value in the code
+   - Consider adding a version comment to track template changes
+
+4. **UI Customization**:
    - The application uses Alpine.js for reactivity
    - Most UI elements can be customized by modifying the HTML and CSS
    - The grid layout can be adjusted to change the card positioning
 
-4. **Testing Considerations**:
+5. **Testing Considerations**:
    - Test with various Excel file formats and sizes
    - Verify template generation with different combinations of selected files
    - Check validation with both valid and invalid data
    - Test on different browsers and screen sizes
+   - Test both the default template and custom uploaded templates
