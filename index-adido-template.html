@@ -288,6 +288,73 @@
         .adhoc-file-list table td:nth-child(3) {
             width: auto; /* File Name takes remaining space */
         }
+
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: var(--card-background-color);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--card-border-color);
+        }
+
+        .modal-body {
+            padding: 1rem;
+        }
+
+        .modal-footer {
+            padding: 1rem;
+            border-top: 1px solid var(--card-border-color);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--color);
+        }
+
+        .warning-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .warning-table th, .warning-table td {
+            padding: 0.5rem;
+            text-align: left;
+            border: 1px solid var(--card-border-color);
+        }
+
+        .warning-table th {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
     </style>
 </head>
 <body x-data="{ ...app(), theme: 'dark' }" x-init="initTheme()" :data-theme="theme">
@@ -461,6 +528,38 @@
     </div>
 </div>
 
+<!-- Warning Modal -->
+<div class="modal" x-show="showWarningModal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Data Validation Warnings</h3>
+            <button @click="showWarningModal = false" class="close-button">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>The following issues were found in your data:</p>
+            <table class="warning-table">
+                <thead>
+                    <tr>
+                        <th>Warning</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(warning, index) in validationWarnings" :key="index">
+                        <tr>
+                            <td x-text="warning.message"></td>
+                            <td x-text="warning.details"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button @click="showWarningModal = false">Close</button>
+        </div>
+    </div>
+</div>
+
 <script>
     function app() {
         return {
@@ -474,6 +573,9 @@
             selectedAdhocFiles: [],
             templateData: null,
             fileFilter: '',
+            showWarningModal: false,
+            validationWarnings: [],
+            validClassifications: ['Critical', 'Restricted', 'Confidential', 'Internal', 'Public'],
             
             // Adhoc data column mapping
             adhocDataMapping: {
@@ -609,6 +711,11 @@
                             this.adhocDataCount = this.adhocData.length;
                             this.filteredAdhocData = [...this.adhocData]; // Initialize filtered data
                             this.metadataStatus = 'Metadata loaded successfully!';
+                            
+                            // Show warnings if any were found
+                            if (this.validationWarnings.length > 0) {
+                                this.showWarningModal = true;
+                            }
                         })
                         .catch(error => {
                             console.error('Error processing Excel file:', error);
@@ -621,14 +728,52 @@
             },
             
             mapAdidoMetadataToInternalSchema(data) {
+                this.validationWarnings = []; // Reset warnings
+                
                 return data.map(item => {
+                    // Validate PI value
+                    const validPiValues = ['yes', 'no', 'true', 'false', '1', '0'];
+                    const piValue = item['PI']?.toString().toLowerCase();
+                    if (item['PI'] !== undefined && item['PI'] !== null && !validPiValues.includes(piValue)) {
+                        this.validationWarnings.push({
+                            message: `Unexpected PI value (${item['PI']})`,
+                            details: `Report: ${item['File Name']}, Field: ${item['Field Name']}`
+                        });
+                    }
+                    
+                    // Validate PCI value
+                    const pciValue = item['PCI']?.toString().toLowerCase();
+                    if (item['PCI'] !== undefined && item['PCI'] !== null && !validPiValues.includes(pciValue)) {
+                        this.validationWarnings.push({
+                            message: `Unexpected PCI value (${item['PCI']})`,
+                            details: `Report: ${item['File Name']}, Field: ${item['Field Name']}`
+                        });
+                    }
+                    console.log(`File: ${item['File Name']}, Field: ${item['Field Name'], item['PI'], item['PCI'], item['Classification']}`);
+                    // Validate Classification value
+                    if (item['Classification'] && !this.validClassifications.includes(item['Classification'])) {
+                        this.validationWarnings.push({
+                            message: `Invalid Classification (${item['Classification']})`,
+                            details: `Report: ${item['File Name']}, Field: ${item['Field Name']}`
+                        });
+                    }
+                    
+                    // Convert PI and PCI to boolean values
+                    const pi = typeof item['PI'] === 'string' 
+                        ? ['yes', 'true', '1'].includes(item['PI'].toLowerCase()) 
+                        : Boolean(item['PI']);
+                        
+                    const pci = typeof item['PCI'] === 'string' 
+                        ? ['yes', 'true', '1'].includes(item['PCI'].toLowerCase()) 
+                        : Boolean(item['PCI']);
+
                     return {
                         report_file: item['File Name'] || '',
                         field_name: item['Field Name'] || '',
                         business_description: item['Business Description'] || '',
                         classification: item['Classification'] || '',
-                        pi: item['PI'] === 'Yes' || item['PI'] === true,
-                        pci: item['PCI'] === 'Yes' || item['PCI'] === true,
+                        pi: pi,
+                        pci: pci,
                         treatment: item['Data Treatment'] || ''
                     };
                 });
