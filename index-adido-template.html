@@ -73,7 +73,7 @@
             border: 1px solid var(--card-border-color);
             border-radius: 0.5rem;
             padding: 1rem;
-            margin-bottom: 1.5rem;
+            margin: 0rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
@@ -314,11 +314,14 @@
         }
 
         .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             padding: 1rem;
             border-bottom: 1px solid var(--card-border-color);
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            text-align: center;
         }
 
         .modal-body {
@@ -329,7 +332,12 @@
             padding: 1rem;
             border-top: 1px solid var(--card-border-color);
             display: flex;
-            justify-content: flex-end;
+            justify-content: center;
+        }
+
+        .modal-footer button {
+            width: 30%;
+            max-width: 150px;
         }
 
         .close-button {
@@ -338,6 +346,15 @@
             font-size: 1.5rem;
             cursor: pointer;
             color: var(--color);
+            padding: 0.25rem 0.5rem;
+            margin-left: 1rem;
+            line-height: 1;
+            border-radius: 0.25rem;
+            transition: background-color 0.2s;
+        }
+
+        .close-button:hover {
+            background-color: rgba(0, 0, 0, 0.1);
         }
 
         .warning-table {
@@ -379,13 +396,13 @@
 </div>
 
 <div class="container">
-    <h1 style="margin-bottom: 24px;">Data Extraction Field Classifier</h1>
+    <h1 style="margin-bottom: 24px;">ADIDO Template Generator</h1>
 
     <!-- Steps Grid -->
     <div class="grid">
         <!-- Step 1 Card -->
         <div class="card">
-            <h2>Step 1: Load Metadata File</h2>
+            <h2>Step 1: Load Use Case file</h2>
             <div class="info-box">
                 Select an Excel (.xlsx) file containing both ADIDO Metadata and Adhoc Data sheets.
             </div>
@@ -418,7 +435,7 @@
 
         <!-- Step 2 Card -->
         <div class="card">
-            <h2>Step 2</h2>
+            <h2>Step 2: Load ADIDO Template</h2>
             <div class="info-box">
                 Load ADIDO Metadata Template files.
             </div>
@@ -447,78 +464,67 @@
         </div>
 
         <!-- Step 3 Card -->
-        <div class="card full-width-card">
-            <h2>Step 3</h2>
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
-                <!-- Left Column -->
-                <div>
-                    <!-- Top Row with Info Box and Filter -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <div class="info-box" style="margin-bottom: 0; flex: 1;">
-                            Select files to generate ADIDO template
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: 1rem;">
-                            <label for="file-filter">Filter file name:</label>
-                            <input type="text" id="file-filter" placeholder="Min 2 characters" x-model="fileFilter" @input="filterAdhocFiles()">
-                        </div>
-                    </div>
-                    
-                    <!-- Selection Table -->
-                    <div class="adhoc-file-list">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th style="width: 1%;"></th>
-                                    <th style="width: 15%;">Source</th>
-                                    <th>File Name</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="(item, index) in filteredAdhocData" :key="index">
-                                    <tr @click="toggleFileSelection(item.file_name)" :class="{ 'selected-row': isFileSelected(item.file_name) }">
-                                        <td style="width: 1%;">
-                                            <input type="checkbox" :checked="isFileSelected(item.file_name)" @click.stop="toggleFileSelection(item.file_name)">
-                                        </td>
-                                        <td style="width: 15%;" x-text="item.data_source === 'data_in' ? 'Data In' : 'Data Out'"></td>
-                                        <td x-text="item.file_name"></td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="card">
+            <h2>Step 3: Select files for ADIDO</h2>
+            <!-- Top Row with Info Box and Filter -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div class="info-box" style="margin-bottom: 0; flex: 1;">
+                    Select files to generate ADIDO template
                 </div>
-                
-                <!-- Right Column -->
-                <div>
-                    <!-- Info Box with Selected Count -->
-                    <div class="info-box" style="margin-bottom: 1rem;">
-                        Selected Files: <span x-text="selectedAdhocFiles.length"></span>
-                    </div>
-                    
-                    <!-- Selected Files Table -->
-                    <div class="adhoc-file-list">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>File Name</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template x-for="(fileName, index) in selectedAdhocFiles" :key="index">
-                                    <tr @click="toggleFileSelection(fileName)">
-                                        <td x-text="fileName"></td>
-                                    </tr>
-                                </template>
-                                <tr x-show="selectedAdhocFiles.length === 0">
-                                    <td style="text-align: center; color: var(--muted-color);">No files selected</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-left: 1rem;">
+                    <label for="file-filter">Filter file name:</label>
+                    <input type="text" id="file-filter" placeholder="Min 2 characters" x-model="fileFilter" @input="filterAdhocFiles()">
                 </div>
             </div>
             
-            <!-- Submit Button Row -->
+            <!-- Selection Table -->
+            <div class="adhoc-file-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 1%;"></th>
+                            <th style="width: 15%;">Source</th>
+                            <th>File Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(item, index) in filteredAdhocData" :key="index">
+                            <tr @click="toggleFileSelection(item.file_name)" :class="{ 'selected-row': isFileSelected(item.file_name) }">
+                                <td style="width: 1%;">
+                                    <input type="checkbox" :checked="isFileSelected(item.file_name)" @click.stop="toggleFileSelection(item.file_name)">
+                                </td>
+                                <td style="width: 15%;" x-text="item.data_source === 'data_in' ? 'Data In' : 'Data Out'"></td>
+                                <td x-text="item.file_name"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Selected Files Card -->
+        <div class="card">
+            <h2>Step 4: Generate ADIDO template</h2>
+            <div class="info-box">
+                Selected Files: <span x-text="selectedAdhocFiles.length"></span>
+            </div>
+            
+            <div class="adhoc-file-list">
+                <table>
+                    <tbody>
+                        <template x-for="(fileName, index) in selectedAdhocFiles" :key="index">
+                            <tr @click="toggleFileSelection(fileName)">
+                                <td x-text="fileName"></td>
+                            </tr>
+                        </template>
+                        <tr x-show="selectedAdhocFiles.length === 0">
+                            <td style="text-align: center; color: var(--muted-color);">No files selected</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Submit Button -->
             <div style="display: flex; justify-content: center; margin-top: 1.5rem;">
                 <button @click="generateADIDOTemplate()" class="export-button" :disabled="adhocDataCount === 0 || selectedAdhocFiles.length === 0" style="width: auto;">
                     Generate ADIDO template
@@ -533,7 +539,6 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3>Data Validation Warnings</h3>
-            <button @click="showWarningModal = false" class="close-button">&times;</button>
         </div>
         <div class="modal-body">
             <p>The following issues were found in your data:</p>
@@ -555,7 +560,7 @@
             </table>
         </div>
         <div class="modal-footer">
-            <button @click="showWarningModal = false">Close</button>
+            <button @click="showWarningModal = false" style="width: 30%;">Close</button>
         </div>
     </div>
 </div>
